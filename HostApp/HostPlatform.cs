@@ -1,0 +1,4 @@
+﻿namespace HostApp {
+    class HostPlatform {
+    }
+}
