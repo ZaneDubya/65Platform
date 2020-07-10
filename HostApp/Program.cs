@@ -5,50 +5,72 @@ using System.IO;
 namespace HostApp {
     class Program {
         static void Main(string[] args) {
-            DoCycleTest();
+            DoTest("1141 cycle test", "./tests/timingtest-with-end.bin", 0x01000, 0x01000, reportCycleCount: true);
+            DoTest("Klaus 6502 functional test", "./tests/6502_functional_test.bin", manualPC: 0x400, reportCycleCount: true, successonPCequals: 0x3469);
             DoBenchmark();
-            Console.WriteLine($"Benchmark complete.");
-            Console.ReadKey();
         }
 
-        private static void DoCycleTest() {
-            Hosted6502 proc = new Hosted6502(new HostLogger());
-            proc.LoadProgram(0x01000, File.ReadAllBytes("./tests/timingtest-with-end.bin"), 0x01000);
+        private static void DoTest(string name, string path, int origin = 0, int? resetVector = null, int? manualPC = null, bool? reportCycleCount = false, bool manualStep = false, int? successonPCequals = null) {
+            HostPlatform platform = new HostPlatform(new HostLogger());
+            if (resetVector.HasValue) {
+                platform.LoadProgram(origin, File.ReadAllBytes(path), resetVector.Value);
+            }
+            else {
+                platform.LoadProgram(origin, File.ReadAllBytes(path));
+            }
+            platform.Reset(true);
+            if (manualPC.HasValue) {
+                platform.Processor.DebugSetPC(manualPC.Value);
+            }
+            Stopwatch watch = new Stopwatch();
+            watch.Start();
             try {
                 while (true) {
-                    proc.NextStep();
-                    if (proc.CycleCount >= 100000000) {
+                    platform.Processor.Step();
+                    if (successonPCequals.HasValue && successonPCequals.Value == platform.Processor.RegisterPC) {
                         break;
+                    }
+                    if (manualStep) {
+                        Console.ReadKey();
                     }
                 }
             }
             catch (Exception e) {
+                watch.Stop();
                 Console.WriteLine(e.Message);
                 // minus one cycle for read of 0xBB, which I use to break.
-                Console.WriteLine($"Test completed in {proc.CycleCount - 1} cycles (1141 is correct).");
+            }
+            watch.Stop();
+            double mhz = platform.Processor.CycleCount / ((double)watch.ElapsedMilliseconds * 1000);
+            if (reportCycleCount.Value == true) {
+                Console.WriteLine($"{name} complete in {platform.Processor.CycleCount - 1} cycles ({mhz:F4} mhz).");
+            }
+            else {
+                Console.WriteLine($"{name} complete.");
             }
             Console.ReadKey();
         }
 
         private static void DoBenchmark() {
-            Hosted6502 proc = new Hosted6502(null);
-            proc.LoadProgram(0x01000, File.ReadAllBytes("./tests/timingtest.bin"), 0x01000);
+            HostPlatform platform = new HostPlatform(null);
+            platform.LoadProgram(0x01000, File.ReadAllBytes("./tests/timingtest.bin"), 0x01000);
             Stopwatch watch = new Stopwatch();
             for (int i = 0; i < 10; i++) {
-                proc.Reset();
+                platform.Reset(true);
                 watch.Reset();
                 watch.Start();
                 while (true) {
-                    proc.NextStep();
-                    if (proc.CycleCount >= 1141 * 100001) {
+                    platform.Processor.Step();
+                    if (platform.Processor.CycleCount >= 1141 * 100001) {
                         break;
                     }
                 }
                 watch.Stop();
-                double seconds = watch.ElapsedMilliseconds / 1000f;
-                double mhz = proc.CycleCount / (seconds * 1000000);
-                Console.WriteLine($"{proc.CycleCount} cycles in {seconds:F2} seconds ({mhz} mhz).");
+                double mhz = platform.Processor.CycleCount / ((double)watch.ElapsedMilliseconds * 1000);
+                Console.WriteLine($"{platform.Processor.CycleCount} cycles in {watch.ElapsedMilliseconds / 1000f:F2} seconds ({mhz:F4} mhz).");
             }
+            Console.WriteLine($"Benchmark complete.");
+            Console.ReadKey();
         }
     }
 }

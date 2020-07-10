@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace HostApp.Emu6502 {
+namespace HostApp.Processor {
 	/// <summary>
 	/// Used to help simulating. This class contains the disassembly properties.
 	/// </summary>

@@ -47,18 +47,20 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Hosted6502.cs" />
     <Compile Include="HostLogger.cs" />
     <Compile Include="HostPlatform.cs" />
-    <Compile Include="Emu6502\AddressingMode.cs" />
-    <Compile Include="Emu6502\Disassembly.cs" />
-    <Compile Include="Emu6502\Net6502.cs" />
-    <Compile Include="Emu6502\Utility.cs" />
+    <Compile Include="Processor\EAddressingMode.cs" />
+    <Compile Include="Processor\Disassembly.cs" />
+    <Compile Include="Processor\Sim6502.cs" />
+    <Compile Include="Processor\Utility.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="tests\6502_functional_test.bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="tests\timingtest.bin">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
