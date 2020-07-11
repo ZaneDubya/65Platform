@@ -12,10 +12,10 @@ namespace HostApp {
         }
 
         public void Reset(bool resetCycleCount = false) {
-            Processor.PinInputRESB_Low = true;
+            Processor.SignalInputRESB_Low = true;
             Processor.Step();
             Processor.Step();
-            Processor.PinInputRESB_Low = false;
+            Processor.SignalInputRESB_Low = false;
             Processor.Step();
             if (resetCycleCount) {
                 Processor.ResetCycleCount();

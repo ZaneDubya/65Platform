@@ -314,7 +314,7 @@ namespace HostApp.Processor {
                 case 0x8A: //TXA
                 case 0x9A: //TXS
                 case 0x98: //TYA
-                    return EAddressingMode.Implied;
+                    return EAddressingMode.Implicit;
                 case 0x6C:
                     return EAddressingMode.Indirect;
                 case 0x61: //ADC

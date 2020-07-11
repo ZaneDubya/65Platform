@@ -33,9 +33,9 @@ namespace HostApp.Processor {
         private int _SP;
         private bool _PendingReset;
         private bool _PendingNMI;
-        private bool _PinInput_NMIB_Low = false;
-        private bool _PinInput_RESB_Low = false;
-        private bool _PinOutput_VPB_Low = false;
+        private bool _SignalInput_NMIB_Low = false;
+        private bool _SignalInput_RESB_Low = false;
+        private bool _SignalOutput_VPB_Low = false;
         private int _CycleCount;
 
         // === Actions ===============================================================================================
@@ -55,25 +55,25 @@ namespace HostApp.Processor {
         /// Input. Drive low (true) to float 6502's bus pins (A, D, RWB), drivet high (false) to enable them.
         /// Driving low does not stop the CPU from executing! If you use this, you may want to use RDY as well!
         /// </summary>
-        public bool PinInputBE_Low = false;
+        public bool SignalInputBE_Low = false;
 
         /// <summary>
         /// Input. Drive low (true) to signal an Interrupt Request.
         /// If the FlagI bit is clear, the Emulator will start its IRQ handler so long as IRQB is low.
         /// </summary>
-        public bool PinInputIRQB_Low = false;
+        public bool SignalInputIRQB_Low = false;
 
         /// <summary>
         /// Input. Drive low (true) from high (false) to signal Non Maskable Interrupt.
         /// Unlike IRQB, this is an edge-triggered signal, not a level-triggered one.
         /// </summary>
-        public bool PinInputNMI_Low {
-            get => _PinInput_NMIB_Low;
+        public bool SignalInputNMI_Low {
+            get => _SignalInput_NMIB_Low;
             set {
-                if (value && !_PinInput_NMIB_Low) {
+                if (value && !_SignalInput_NMIB_Low) {
                     _PendingNMI = true;
                 }
-                _PinInput_NMIB_Low = value;
+                _SignalInput_NMIB_Low = value;
             }
         }
 
@@ -81,13 +81,13 @@ namespace HostApp.Processor {
         /// Input. Drive low (true) to signal reset, then drive high for normal operation.
         /// A real 65c02 requires RESB to be low for at least two PHI2 cycles, but this emulator is fully reset by even a brief pulse.
         /// </summary>
-        public bool PinInputRESB_Low {
-            get => _PinInput_RESB_Low;
+        public bool SignalInputRESB_Low {
+            get => _SignalInput_RESB_Low;
             set {
-                if (!value && _PinInput_RESB_Low) {
+                if (!value && _SignalInput_RESB_Low) {
                     _PendingReset = true;
                 }
-                _PinInput_RESB_Low = value;
+                _SignalInput_RESB_Low = value;
             }
         }
 
@@ -95,21 +95,21 @@ namespace HostApp.Processor {
         /// Output.LOW indicates to other bus subscribers that a read-modify-write instruction is on the bus. 
         /// Low in the last three cycles of ASL, DEC, INC, LSR, ROL, ROR, TRB, and TSB. HIGH otherwise.
         /// </summary>
-        public bool PinOutputMLB_Low { get; private set; }
+        public bool SignalOutputMLB_Low { get; private set; }
 
         /// <summary>
         /// Output. HIGH for entire cycle 65c02 is fetching an opcode.
         /// </summary>
-        public bool PinOutputSYNC_High { get; private set; }
+        public bool SignalOutputSYNC_High { get; private set; }
 
         /// <summary>
         /// Output.LOW indicates that a interrupt vectors are being addressed.
         /// </summary>
-        public bool PinOutputVPB_Low {
-            get => _PinOutput_VPB_Low;
+        public bool SignalOutputVPB_Low {
+            get => _SignalOutput_VPB_Low;
             private set {
-                if (value != _PinOutput_VPB_Low) {
-                    _PinOutput_VPB_Low = value;
+                if (value != _SignalOutput_VPB_Low) {
+                    _SignalOutput_VPB_Low = value;
                     // todo: invoke action?
                 }
             }
@@ -239,14 +239,14 @@ namespace HostApp.Processor {
         /// Performs the next step on the processor.
         /// </summary>
         public void Step() {
-            if (!_PendingReset && !PinInputRESB_Low) {
+            if (!_PendingReset && !SignalInputRESB_Low) {
                 // T0
-                PinOutputSYNC_High = true;
+                SignalOutputSYNC_High = true;
                 RegisterIR = ReadMemoryValue(RegisterPC);
                 SetDisassembly();
                 RegisterPC++;
                 // T1...T6 (including additional cycles for branch taken, page cross, etc.)
-                PinOutputSYNC_High = false;
+                SignalOutputSYNC_High = false;
                 ExecuteOpCode();
             }
             if (_PendingReset) {
@@ -255,7 +255,7 @@ namespace HostApp.Processor {
             else if (_PendingNMI) {
                 ProcessNMI();
             }
-            else if (PinInputIRQB_Low && !FlagI) {
+            else if (SignalInputIRQB_Low && !FlagI) {
                 ProcessIRQ();
             }
         }
@@ -270,7 +270,7 @@ namespace HostApp.Processor {
             FlagI = true;
             _PendingReset = false;
             _PendingNMI = false;
-            _PinOutput_VPB_Low = false;
+            _SignalOutput_VPB_Low = false;
         }
 
         /// <summary>
@@ -301,7 +301,7 @@ namespace HostApp.Processor {
         private byte ReadMemoryValueWithoutCycle(int address) {
             byte value = 0xEA; // NOP
             if (_OnBusAction != null) {
-                value = _OnBusAction.Invoke(PinInputBE_Low ? 0 : address, 0, LOGIC_HIGH);
+                value = _OnBusAction.Invoke(SignalInputBE_Low ? 0 : address, 0, LOGIC_HIGH);
             }
             return value;
         }
@@ -320,7 +320,7 @@ namespace HostApp.Processor {
         /// Writes data to the given address without incrementing the cycle.
         /// </summary>
         private void WriteMemoryValueWithoutCycle(int address, byte data) {
-            if (!PinInputBE_Low && _OnBusAction != null) {
+            if (!SignalInputBE_Low && _OnBusAction != null) {
                 _OnBusAction(address, data, LOGIC_LOW);
             }
         }
@@ -336,7 +336,10 @@ namespace HostApp.Processor {
             //The x++ cycles denotes that 1 cycle is added when a branch occurs and it on the same page, and two cycles are added if its on a different page./
             //This is handled inside the GetValueFromMemory Method
             switch (RegisterIR) {
-                // --- Add / Subtract Operations ---------------------------------------------------------------------
+
+                // === Add/Subtract Operations =======================================================================
+                // ===================================================================================================
+
                 //ADC Add With Carry, Indexed Indirect, 2 Bytes, 6 Cycles
                 case 0x61:
                     AddWithCarryOperation(EAddressingMode.IndirectX);
@@ -371,72 +374,76 @@ namespace HostApp.Processor {
                     break;
                 //SBC Subtract with Borrow, Immediate, 2 Bytes, 2 Cycles
                 case 0xE9:
-                        SubtractWithBorrowOperation(EAddressingMode.Immediate);
-                        break;
+                    SubtractWithBorrowOperation(EAddressingMode.Immediate);
+                    break;
                 //SBC Subtract with Borrow, Zero Page, 2 Bytes, 3 Cycles
                 case 0xE5:
-                        SubtractWithBorrowOperation(EAddressingMode.ZeroPage);
-                        break;
+                    SubtractWithBorrowOperation(EAddressingMode.ZeroPage);
+                    break;
                 //SBC Subtract with Borrow, Zero Page X, 2 Bytes, 4 Cycles
                 case 0xF5:
-                        SubtractWithBorrowOperation(EAddressingMode.ZeroPageX);
-                        break;
+                    SubtractWithBorrowOperation(EAddressingMode.ZeroPageX);
+                    break;
                 //SBC Subtract with Borrow, Absolute, 3 Bytes, 4 Cycles
                 case 0xED:
-                        SubtractWithBorrowOperation(EAddressingMode.Absolute);
-                        break;
+                    SubtractWithBorrowOperation(EAddressingMode.Absolute);
+                    break;
                 //SBC Subtract with Borrow, Absolute X, 3 Bytes, 4+ Cycles
                 case 0xFD:
-                        SubtractWithBorrowOperation(EAddressingMode.AbsoluteX);
-                        break;
+                    SubtractWithBorrowOperation(EAddressingMode.AbsoluteX);
+                    break;
                 //SBC Subtract with Borrow, Absolute Y, 3 Bytes, 4+ Cycles
                 case 0xF9:
-                        SubtractWithBorrowOperation(EAddressingMode.AbsoluteY);
-                        break;
+                    SubtractWithBorrowOperation(EAddressingMode.AbsoluteY);
+                    break;
                 //SBC Subtract with Borrow, Indexed Indirect, 2 Bytes, 6 Cycles
                 case 0xE1:
-                        SubtractWithBorrowOperation(EAddressingMode.IndirectX);
-                        break;
+                    SubtractWithBorrowOperation(EAddressingMode.IndirectX);
+                    break;
                 //SBC Subtract with Borrow, Indexed Indirect, 2 Bytes, 5+ Cycles
                 case 0xF1:
-                        SubtractWithBorrowOperation(EAddressingMode.IndirectY);
-                        break;
+                    SubtractWithBorrowOperation(EAddressingMode.IndirectY);
+                    break;
 
                 // === Branch Operations =============================================================================
                 // ===================================================================================================
 
-                //BCC Branch if Carry is Clear, Relative, 2 Bytes, 2++ Cycles
-                case 0x90:
-                        BranchOperation(!FlagC);
-                        break;
-                //BCS Branch if Carry is Set, Relative, 2 Bytes, 2++ Cycles
-                case 0xB0:
-                        BranchOperation(FlagC);
-                        break;
-                //BEQ Branch if Zero is Set, Relative, 2 Bytes, 2++ Cycles
-                case 0xF0:
-                        BranchOperation(FlagZ);
-                        break;
-                // BMI Branch if Negative Set
-                case 0x30:
-                        BranchOperation(FlagN);
-                        break;
-                //BNE Branch if Zero is Not Set, Relative, 2 Bytes, 2++ Cycles
-                case 0xD0:
-                        BranchOperation(!FlagZ);
-                        break;
                 // BPL Branch if Negative Clear, 2 Bytes, 2++ Cycles
                 case 0x10:
-                        BranchOperation(!FlagN);
-                        break;
+                    BranchOperation(!FlagN);
+                    break;
+                // BMI Branch if Negative Set
+                case 0x30:
+                    BranchOperation(FlagN);
+                    break;
                 // BVC Branch if Overflow Clear, 2 Bytes, 2++ Cycles
                 case 0x50:
-                        BranchOperation(!FlagV);
-                        break;
+                    BranchOperation(!FlagV);
+                    break;
                 // BVS Branch if Overflow Set, 2 Bytes, 2++ Cycles
                 case 0x70:
-                        BranchOperation(FlagV);
-                        break;
+                    BranchOperation(FlagV);
+                    break;
+                // BRA Branch always, 2 bytes, 2++ Cycles (65c02 / 65c618)
+                case 0x80:
+                    BranchOperation(true);
+                    break;
+                //BCC Branch if Carry is Clear, Relative, 2 Bytes, 2++ Cycles
+                case 0x90:
+                    BranchOperation(!FlagC);
+                    break;
+                //BCS Branch if Carry is Set, Relative, 2 Bytes, 2++ Cycles
+                case 0xB0:
+                    BranchOperation(FlagC);
+                    break;
+                //BNE Branch if Zero is Not Set, Relative, 2 Bytes, 2++ Cycles
+                case 0xD0:
+                    BranchOperation(!FlagZ);
+                    break;
+                //BEQ Branch if Zero is Set, Relative, 2 Bytes, 2++ Cycles
+                case 0xF0:
+                    BranchOperation(FlagZ);
+                    break;
 
                 // === BitWise Comparison Operations ============================================================================================
                 // ==============================================================================================================================
@@ -576,31 +583,25 @@ namespace HostApp.Processor {
                 // ==============================================================================================================================
 
                 //CLC Clear Carry Flag, Implied, 1 Byte, 2 Cycles
-                case 0x18: {
-                        FlagC = false;
-                        IncrementCycleCount();
-                        break;
-                    }
+                case 0x18:
+                    FlagC = false;
+                    IncrementCycleCount();
+                    break;
                 //CLD Clear Decimal Flag, Implied, 1 Byte, 2 Cycles
-                case 0xD8: {
-                        FlagD = false;
-                        IncrementCycleCount();
-                        break;
-
-                    }
+                case 0xD8:
+                    FlagD = false;
+                    IncrementCycleCount();
+                    break;
                 //CLI Clear Interrupt Flag, Implied, 1 Byte, 2 Cycles
-                case 0x58: {
-                        FlagI = false;
-                        IncrementCycleCount();
-                        break;
-
-                    }
+                case 0x58:
+                    FlagI = false;
+                    IncrementCycleCount();
+                    break;
                 //CLV Clear Overflow Flag, Implied, 1 Byte, 2 Cycles
-                case 0xB8: {
-                        FlagV = false;
-                        IncrementCycleCount();
-                        break;
-                    }
+                case 0xB8:
+                    FlagV = false;
+                    IncrementCycleCount();
+                    break;
 
                 // === Compare Operations =======================================================================================================
                 // ==============================================================================================================================
@@ -741,7 +742,6 @@ namespace HostApp.Processor {
                         ChangeRegister(false, false);
                         break;
                     }
-
 
                 // === GOTO and GOSUB ===========================================================================================================
                 // ==============================================================================================================================
@@ -915,63 +915,95 @@ namespace HostApp.Processor {
                 // === Push/Pull Stack ==========================================================================================================
                 // ==============================================================================================================================
 
-                //PHA Push Accumulator onto Stack, Implied, 1 Byte, 3 Cycles
-                case 0x48: {
-                        ReadMemoryValue(RegisterPC + 1);
-                        PokeStack((byte)RegisterA);
-                        RegisterSP--;
-                        IncrementCycleCount();
-                        break;
-                    }
-                //PHP Push Flags onto Stack, Implied, 1 Byte, 3 Cycles
-                case 0x08: {
-                        ReadMemoryValue(RegisterPC + 1);
+                // PHP Push Flags onto Stack, Implied, 1 Byte, 3 Cycles
+                case 0x08:
+                    ReadMemoryValue(RegisterPC + 1);
 
-                        PushFlagsOperation();
-                        RegisterSP--;
-                        IncrementCycleCount();
-                        break;
-                    }
-                //PLA Pull Accumulator from Stack, Implied, 1 Byte, 4 Cycles
-                case 0x68: {
-                        ReadMemoryValue(RegisterPC + 1);
-                        RegisterSP++;
-                        IncrementCycleCount();
+                    PushFlagsOperation();
+                    RegisterSP--;
+                    IncrementCycleCount();
+                    break;
+                // PLP Pull Flags from Stack, Implied, 1 Byte, 4 Cycles
+                case 0x28:
+                    ReadMemoryValue(RegisterPC + 1);
 
-                        RegisterA = PeekStack();
-                        SetNegativeFlag(RegisterA);
-                        SetZeroFlag(RegisterA);
+                    RegisterSP++;
+                    IncrementCycleCount();
 
-                        IncrementCycleCount();
-                        break;
-                    }
-                //PLP Pull Flags from Stack, Implied, 1 Byte, 4 Cycles
-                case 0x28: {
-                        ReadMemoryValue(RegisterPC + 1);
+                    PullFlagsOperation();
 
-                        RegisterSP++;
-                        IncrementCycleCount();
+                    IncrementCycleCount();
+                    break;
+                // PHA Push Accumulator onto Stack, Implied, 1 Byte, 3 Cycles
+                case 0x48:
+                    ReadMemoryValue(RegisterPC + 1); // dummy read?
+                    PokeStack((byte)RegisterA);
+                    RegisterSP--;
+                    IncrementCycleCount();
+                    break;
+                // PLA Pull Accumulator from Stack, Implied, 1 Byte, 4 Cycles
+                case 0x68:
+                    ReadMemoryValue(RegisterPC + 1); // dummy read?
+                    RegisterSP++;
+                    IncrementCycleCount();
 
-                        PullFlagsOperation();
+                    RegisterA = PeekStack();
+                    SetNegativeFlag(RegisterA);
+                    SetZeroFlag(RegisterA);
 
-                        IncrementCycleCount();
-                        break;
-                    }
-                //TSX Transfer Stack Pointer to X Register, 1 Bytes, 2 Cycles
-                case 0xBA: {
-                        RegisterX = RegisterSP;
+                    IncrementCycleCount();
+                    break;
+                // TXS Transfer X Register to Stack Pointer, 1 Bytes, 2 Cycles
+                case 0x9A:
+                    RegisterSP = (byte)RegisterX;
+                    IncrementCycleCount();
+                    break;
+                // TSX Transfer Stack Pointer to X Register, 1 Bytes, 2 Cycles
+                case 0xBA:
+                    RegisterX = RegisterSP;
 
-                        SetNegativeFlag(RegisterX);
-                        SetZeroFlag(RegisterX);
-                        IncrementCycleCount();
-                        break;
-                    }
-                //TXS Transfer X Register to Stack Pointer, 1 Bytes, 2 Cycles
-                case 0x9A: {
-                        RegisterSP = (byte)RegisterX;
-                        IncrementCycleCount();
-                        break;
-                    }
+                    SetNegativeFlag(RegisterX);
+                    SetZeroFlag(RegisterX);
+                    IncrementCycleCount();
+                    break;
+                // PHY Push Y to Stack, Implied, 1 Byte, 3 Cycles (65c02 / 65c816)
+                case 0x5A:
+                    ReadMemoryValue(RegisterPC + 1); // dummy read?
+                    PokeStack((byte)RegisterY);
+                    RegisterSP--;
+                    IncrementCycleCount();
+                    break;
+                // PLY Pull Y from Stack, Implied, 1 Byte, 4 Cycles (65c02 / 65c816)
+                case 0x7A:
+                    ReadMemoryValue(RegisterPC + 1); // dummy read?
+                    RegisterSP++;
+                    IncrementCycleCount();
+
+                    RegisterY = PeekStack();
+                    SetNegativeFlag(RegisterY);
+                    SetZeroFlag(RegisterY);
+
+                    IncrementCycleCount();
+                    break;
+                // PHX Push X to Stack, Implied, 1 Byte, 3 Cycles (65c02 / 65c816)
+                case 0xDA:
+                    ReadMemoryValue(RegisterPC + 1); // dummy read?
+                    PokeStack((byte)RegisterX);
+                    RegisterSP--;
+                    IncrementCycleCount();
+                    break;
+                // PLX Pull X from Stack, Implied, 1 Byte, 4 Cycles (65c02 / 65c816)
+                case 0xFA:
+                    ReadMemoryValue(RegisterPC + 1); // dummy read?
+                    RegisterSP++;
+                    IncrementCycleCount();
+
+                    RegisterX = PeekStack();
+                    SetNegativeFlag(RegisterX);
+                    SetZeroFlag(RegisterX);
+
+                    IncrementCycleCount();
+                    break;
 
                 // === Set Flag Operations ======================================================================================================
                 // ==============================================================================================================================
@@ -1106,74 +1138,61 @@ namespace HostApp.Processor {
                 // === Store in Memory ==========================================================================================================
                 // ==============================================================================================================================
 
-                //STA Store Accumulator In Memory, Zero Page, 2 Bytes, 3 Cycles
-                case 0x85: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPage), (byte)RegisterA);
-                        break;
-                    }
-                //STA Store Accumulator In Memory, Zero Page X, 2 Bytes, 4 Cycles
-                case 0x95: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPageX), (byte)RegisterA);
-                        break;
-                    }
-                //STA Store Accumulator In Memory, Absolute, 3 Bytes, 4 Cycles
-                case 0x8D: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.Absolute), (byte)RegisterA);
-                        break;
-                    }
-                //STA Store Accumulator In Memory, Absolute X, 3 Bytes, 5 Cycles
-                case 0x9D: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.AbsoluteX), (byte)RegisterA);
-                        IncrementCycleCount();
-                        break;
-                    }
-                //STA Store Accumulator In Memory, Absolute Y, 3 Bytes, 5 Cycles
-                case 0x99: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.AbsoluteY), (byte)RegisterA);
-                        IncrementCycleCount();
-                        break;
-                    }
                 //STA Store Accumulator In Memory, Indexed Indirect, 2 Bytes, 6 Cycles
-                case 0x81: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.IndirectX), (byte)RegisterA);
-                        break;
-                    }
+                case 0x81:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.IndirectX), (byte)RegisterA);
+                    break;
+                //STA Store Accumulator In Memory, Zero Page, 2 Bytes, 3 Cycles
+                case 0x85:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPage), (byte)RegisterA);
+                    break;
+                //STA Store Accumulator In Memory, Absolute, 3 Bytes, 4 Cycles
+                case 0x8D:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.Absolute), (byte)RegisterA);
+                    break;
                 //STA Store Accumulator In Memory, Indirect Indexed, 2 Bytes, 6 Cycles
-                case 0x91: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.IndirectY), (byte)RegisterA);
-                        IncrementCycleCount();
-                        break;
-                    }
+                case 0x91:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.IndirectY), (byte)RegisterA);
+                    IncrementCycleCount();
+                    break;
+                //STA Store Accumulator In Memory, Zero Page X, 2 Bytes, 4 Cycles
+                case 0x95:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPageX), (byte)RegisterA);
+                    break;
+                //STA Store Accumulator In Memory, Absolute Y, 3 Bytes, 5 Cycles
+                case 0x99:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.AbsoluteY), (byte)RegisterA);
+                    IncrementCycleCount();
+                    break;
+                //STA Store Accumulator In Memory, Absolute X, 3 Bytes, 5 Cycles
+                case 0x9D:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.AbsoluteX), (byte)RegisterA);
+                    IncrementCycleCount();
+                    break;
                 //STX Store Index X, Zero Page, 2 Bytes, 3 Cycles
-                case 0x86: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPage), (byte)RegisterX);
-                        break;
-                    }
+                case 0x86:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPage), (byte)RegisterX);
+                    break;
                 //STX Store Index X, Zero Page Y, 2 Bytes, 4 Cycles
-                case 0x96: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPageY), (byte)RegisterX);
-                        break;
-                    }
+                case 0x96:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPageY), (byte)RegisterX);
+                    break;
                 //STX Store Index X, Absolute, 3 Bytes, 4 Cycles
-                case 0x8E: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.Absolute), (byte)RegisterX);
-                        break;
-                    }
+                case 0x8E:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.Absolute), (byte)RegisterX);
+                    break;
                 //STY Store Index Y, Zero Page, 2 Bytes, 3 Cycles
-                case 0x84: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPage), (byte)RegisterY);
-                        break;
-                    }
+                case 0x84:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPage), (byte)RegisterY);
+                    break;
                 //STY Store Index Y, Zero Page X, 2 Bytes, 4 Cycles
-                case 0x94: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPageX), (byte)RegisterY);
-                        break;
-                    }
+                case 0x94:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPageX), (byte)RegisterY);
+                    break;
                 //STY Store Index Y, Absolute, 2 Bytes, 4 Cycles
-                case 0x8C: {
-                        WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.Absolute), (byte)RegisterY);
-                        break;
-                    }
+                case 0x8C:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.Absolute), (byte)RegisterY);
+                    break;
 
                 // === Transfer between register ================================================================================================
                 // ==============================================================================================================================
@@ -1199,7 +1218,6 @@ namespace HostApp.Processor {
                     SetNegativeFlag(RegisterA);
                     SetZeroFlag(RegisterA);
                     break;
-
                 //TYA Transfer Y Register to Accumulator, Implied, 1 Bytes, 2 Cycles
                 case 0x98:
                     IncrementCycleCount();
@@ -1441,7 +1459,7 @@ namespace HostApp.Processor {
                         disassembledStep = string.Format("#${0}", address1.Value.ToString("X").PadLeft(4, '0'));
                         address2 = null;
                         break;
-                case EAddressingMode.Implied:
+                case EAddressingMode.Implicit:
                         address1 = null;
                         address2 = null;
                         break;
@@ -1576,7 +1594,7 @@ namespace HostApp.Processor {
                 value = RegisterA;
             }
             else {
-                PinOutputMLB_Low = true;
+                SignalOutputMLB_Low = true;
                 memoryAddress = GetAddressByAddressingMode(addressingMode);
                 value = ReadMemoryValue(memoryAddress);
             }
@@ -1594,7 +1612,7 @@ namespace HostApp.Processor {
                 RegisterA = value;
             else {
                 WriteMemoryValue(memoryAddress, (byte)value);
-                PinOutputMLB_Low = false;
+                SignalOutputMLB_Low = false;
             }
         }
 
@@ -1652,7 +1670,7 @@ namespace HostApp.Processor {
         /// <param name="decrement">If the operation is decrementing or incrementing the vaulue by 1 </param>
         private void ChangeMemoryByOne(EAddressingMode addressingMode, bool decrement) {
             int memoryLocation = GetAddressByAddressingMode(addressingMode);
-            PinOutputMLB_Low = true;
+            SignalOutputMLB_Low = true;
             byte memory = ReadMemoryValue(memoryLocation); // read
             WriteMemoryValue(memoryLocation, memory); // dummy write?
             if (decrement) // modify
@@ -1662,7 +1680,7 @@ namespace HostApp.Processor {
             SetZeroFlag(memory);
             SetNegativeFlag(memory);
             WriteMemoryValue(memoryLocation, memory); // write back
-            PinOutputMLB_Low = false;
+            SignalOutputMLB_Low = false;
         }
 
         /// <summary>
@@ -1712,7 +1730,7 @@ namespace HostApp.Processor {
                 value = RegisterA;
             }
             else {
-                PinOutputMLB_Low = true;
+                SignalOutputMLB_Low = true;
                 memoryAddress = GetAddressByAddressingMode(addressingMode);
                 value = ReadMemoryValue(memoryAddress);
             }
@@ -1729,7 +1747,7 @@ namespace HostApp.Processor {
                 RegisterA = value;
             else {
                 WriteMemoryValue(memoryAddress, (byte)value);
-                PinOutputMLB_Low = false;
+                SignalOutputMLB_Low = false;
             }
         }
 
@@ -1756,7 +1774,7 @@ namespace HostApp.Processor {
                 value = RegisterA;
             }
             else {
-                PinOutputMLB_Low = true;
+                SignalOutputMLB_Low = true;
                 memoryAddress = GetAddressByAddressingMode(addressingMode);
                 value = ReadMemoryValue(memoryAddress);
             }
@@ -1778,7 +1796,7 @@ namespace HostApp.Processor {
                 RegisterA = value;
             else {
                 WriteMemoryValue(memoryAddress, (byte)value);
-                PinOutputMLB_Low = false;
+                SignalOutputMLB_Low = false;
             }
         }
 
@@ -1795,7 +1813,7 @@ namespace HostApp.Processor {
                 value = RegisterA;
             }
             else {
-                PinOutputMLB_Low = true;
+                SignalOutputMLB_Low = true;
                 memoryAddress = GetAddressByAddressingMode(addressingMode);
                 value = ReadMemoryValue(memoryAddress);
             }
@@ -1817,7 +1835,7 @@ namespace HostApp.Processor {
                 RegisterA = value;
             else {
                 WriteMemoryValue(memoryAddress, (byte)value);
-                PinOutputMLB_Low = false;
+                SignalOutputMLB_Low = false;
             }
         }
 
@@ -1942,9 +1960,9 @@ namespace HostApp.Processor {
         }
 
         private void ReadVectorAddressToPC(int vector) {
-            PinOutputVPB_Low = true;
+            SignalOutputVPB_Low = true;
             RegisterPC = ReadMemoryValue(vector) | (ReadMemoryValue(vector + 1) << 8);
-            PinOutputVPB_Low = false;
+            SignalOutputVPB_Low = false;
         }
 
         /// <summary>
@@ -1977,11 +1995,11 @@ namespace HostApp.Processor {
 	    private void ProcessNMI() {
             RegisterPC--;
             BreakOperation(false, VectorNMI);
-            PinOutputSYNC_High = true;
+            SignalOutputSYNC_High = true;
             RegisterIR = ReadMemoryValue(RegisterPC);
             SetDisassembly();
             _PendingNMI = false;
-            PinOutputSYNC_High = false;
+            SignalOutputSYNC_High = false;
         }
 
         /// <summary>
@@ -1990,10 +2008,10 @@ namespace HostApp.Processor {
         private void ProcessIRQ() {
             RegisterPC--;
             BreakOperation(false, VectorIRQ);
-            PinOutputSYNC_High = true;
+            SignalOutputSYNC_High = true;
             RegisterIR = ReadMemoryValue(RegisterPC);
             SetDisassembly();
-            PinOutputSYNC_High = false;
+            SignalOutputSYNC_High = false;
         }
     }
 }
