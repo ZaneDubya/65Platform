@@ -1135,7 +1135,7 @@ namespace HostApp.Processor {
                         break;
                     }
 
-                // === Store in Memory ==========================================================================================================
+                // === Store Register in Memory =================================================================================================
                 // ==============================================================================================================================
 
                 //STA Store Accumulator In Memory, Indexed Indirect, 2 Bytes, 6 Cycles
@@ -1152,8 +1152,8 @@ namespace HostApp.Processor {
                     break;
                 //STA Store Accumulator In Memory, Indirect Indexed, 2 Bytes, 6 Cycles
                 case 0x91:
-                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.IndirectY), (byte)RegisterA);
                     IncrementCycleCount();
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.IndirectY), (byte)RegisterA);
                     break;
                 //STA Store Accumulator In Memory, Zero Page X, 2 Bytes, 4 Cycles
                 case 0x95:
@@ -1161,13 +1161,13 @@ namespace HostApp.Processor {
                     break;
                 //STA Store Accumulator In Memory, Absolute Y, 3 Bytes, 5 Cycles
                 case 0x99:
-                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.AbsoluteY), (byte)RegisterA);
                     IncrementCycleCount();
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.AbsoluteY), (byte)RegisterA);
                     break;
                 //STA Store Accumulator In Memory, Absolute X, 3 Bytes, 5 Cycles
                 case 0x9D:
-                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.AbsoluteX), (byte)RegisterA);
                     IncrementCycleCount();
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.AbsoluteX), (byte)RegisterA);
                     break;
                 //STX Store Index X, Zero Page, 2 Bytes, 3 Cycles
                 case 0x86:
@@ -1192,6 +1192,27 @@ namespace HostApp.Processor {
                 //STY Store Index Y, Absolute, 2 Bytes, 4 Cycles
                 case 0x8C:
                     WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.Absolute), (byte)RegisterY);
+                    break;
+
+                // === Store Zero in Memory =====================================================================================================
+                // ==============================================================================================================================
+
+                // STZ Store Zero, ZP, 2 bytes, 3 cycles (65c02 / 65c816)
+                case 0x64:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPage), (byte)0x00);
+                    break;
+                // STZ Store Zero, ZP X, 2 bytes, 4 cycles (65c02 / 65c816)
+                case 0x74:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPageX), (byte)0x00);
+                    break;
+                // STZ Store Zero, Absolute, 3 bytes, 4 cycles (65c02 / 65c816)
+                case 0x9C:
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.Absolute), (byte)0x00);
+                    break;
+                // STZ Store Zero, Absolute X, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0x9E:
+                    IncrementCycleCount();
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.AbsoluteX), (byte)0x00);
                     break;
 
                 // === Transfer between register ================================================================================================
@@ -1226,6 +1247,23 @@ namespace HostApp.Processor {
                     SetZeroFlag(RegisterA);
                     break;
 
+                // === Test and Set/Reset bits ==================================================================================================
+                // ==============================================================================================================================
+
+                // TSB Test and set bits, ZP, 2 bytes, 5 cycles
+                case 0x04:
+                    OpTSB(EAddressingMode.ZeroPage);
+                    break;
+                case 0x0C:
+                    OpTSB(EAddressingMode.Absolute);
+                    break;
+                case 0x14:
+                    OpTRB(EAddressingMode.ZeroPage);
+                    break;
+                case 0x1C:
+                    OpTRB(EAddressingMode.Absolute);
+                    break;
+
                 // === NOP ======================================================================================================================
                 // ==============================================================================================================================
 
@@ -1236,6 +1274,32 @@ namespace HostApp.Processor {
                 default:
                     throw new NotSupportedException(string.Format("The OpCode ${0:X2} is not supported", RegisterIR));
             }
+        }
+
+        /// <summary>
+        /// Test and sets bits at the indicated memory location. Zero flag is set if (memory & A) == 0.
+        /// </summary>
+        private void OpTSB(EAddressingMode addressing) {
+            int address = GetAddressByAddressingMode(addressing);
+            byte memoryValue = ReadMemoryValue(address);
+            int zeroCheckValue = memoryValue & RegisterA;
+            int value = memoryValue | RegisterA;
+            SetZeroFlag(value);
+            IncrementCycleCount();
+            WriteMemoryValue(address, (byte)value);
+        }
+
+        /// <summary>
+        /// Test and clears bits at the indicated memory location. Zero flag is set if (memory & A) == 0.
+        /// </summary>
+        private void OpTRB(EAddressingMode addressing) {
+            int address = GetAddressByAddressingMode(addressing);
+            byte memoryValue = ReadMemoryValue(address);
+            int zeroCheckValue = memoryValue & RegisterA;
+            int value = memoryValue & ~RegisterA;
+            SetZeroFlag(zeroCheckValue);
+            IncrementCycleCount();
+            WriteMemoryValue(address, (byte)value);
         }
 
         /// <summary>
