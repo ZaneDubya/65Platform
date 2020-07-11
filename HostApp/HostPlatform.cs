@@ -12,10 +12,10 @@ namespace HostApp {
         }
 
         public void Reset(bool resetCycleCount = false) {
-            Processor.PinRESB_Low = true;
+            Processor.PinInputRESB_Low = true;
             Processor.Step();
             Processor.Step();
-            Processor.PinRESB_Low = false;
+            Processor.PinInputRESB_Low = false;
             Processor.Step();
             if (resetCycleCount) {
                 Processor.ResetCycleCount();
@@ -41,10 +41,8 @@ namespace HostApp {
 		/// <param name="initialProgramCounter">The initial PC value, this is the entry point of the program</param>
 		public void LoadProgram(int offset, byte[] program, int initialProgramCounter) {
             LoadProgram(offset, program);
-            var bytes = BitConverter.GetBytes(initialProgramCounter);
-            //Write the initialProgram Counter to the reset vector
-            BusAction(Sim6502.VectorRESET, bytes[0], true);
-            BusAction(Sim6502.VectorRESET + 1, bytes[1], true);
+            _Memory[Sim6502.VectorRESET + 0] = (byte)(initialProgramCounter & 0xff);
+            _Memory[Sim6502.VectorRESET + 1] = (byte)((initialProgramCounter >> 8) & 0xff);
         }
 
         /// <summary>

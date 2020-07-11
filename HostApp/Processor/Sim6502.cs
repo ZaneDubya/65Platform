@@ -33,8 +33,9 @@ namespace HostApp.Processor {
         private int _SP;
         private bool _PendingReset;
         private bool _PendingNMI;
-        private bool _PinRESB_Low = false;
-        private bool _PinNMIB_Low = false;
+        private bool _PinInput_NMIB_Low = false;
+        private bool _PinInput_RESB_Low = false;
+        private bool _PinOutput_VPB_Low = false;
         private int _CycleCount;
 
         // === Actions ===============================================================================================
@@ -51,44 +52,68 @@ namespace HostApp.Processor {
         // ===========================================================================================================
 
         /// <summary>
-        /// Input. Drive low (true) to signal reset, then drive high for normal operation.
-        /// A real 65c02 requires RESB to be low for at least two PHI2 cycles, but this emulator is fully reset by even a brief pulse.
+        /// Input. Drive low (true) to float 6502's bus pins (A, D, RWB), drivet high (false) to enable them.
+        /// Driving low does not stop the CPU from executing! If you use this, you may want to use RDY as well!
         /// </summary>
-        public bool PinRESB_Low {
-            get => _PinRESB_Low;
-            set {
-                if (!value && _PinRESB_Low) {
-                    _PendingReset = true;
-                }
-                _PinRESB_Low = value;
-            }
-        }
-
-        /// <summary>
-        /// Input. Drive low (true) from high (false) to signal Non Maskable Interrupt.
-        /// Unlike IRQB, this is an edge-triggered signal, not a level-triggered one.
-        /// </summary>
-        public bool PinNMI_Low {
-            get => _PinNMIB_Low;
-            set {
-                if (value && !_PinNMIB_Low) {
-                    _PendingNMI = true;
-                }
-                _PinNMIB_Low = value;
-            }
-        }
+        public bool PinInputBE_Low = false;
 
         /// <summary>
         /// Input. Drive low (true) to signal an Interrupt Request.
         /// If the FlagI bit is clear, the Emulator will start its IRQ handler so long as IRQB is low.
         /// </summary>
-        public bool PinIRQB_Low = false;
+        public bool PinInputIRQB_Low = false;
 
         /// <summary>
-        /// Input. Drive low (true) to float 6502's bus pins (A, D, RWB), drivet high (false) to enable them.
-        /// Driving low does not stop the CPU from executing! If you use this, you may want to use RDY as well!
+        /// Input. Drive low (true) from high (false) to signal Non Maskable Interrupt.
+        /// Unlike IRQB, this is an edge-triggered signal, not a level-triggered one.
         /// </summary>
-        public bool PinBE_Low = false;
+        public bool PinInputNMI_Low {
+            get => _PinInput_NMIB_Low;
+            set {
+                if (value && !_PinInput_NMIB_Low) {
+                    _PendingNMI = true;
+                }
+                _PinInput_NMIB_Low = value;
+            }
+        }
+
+        /// <summary>
+        /// Input. Drive low (true) to signal reset, then drive high for normal operation.
+        /// A real 65c02 requires RESB to be low for at least two PHI2 cycles, but this emulator is fully reset by even a brief pulse.
+        /// </summary>
+        public bool PinInputRESB_Low {
+            get => _PinInput_RESB_Low;
+            set {
+                if (!value && _PinInput_RESB_Low) {
+                    _PendingReset = true;
+                }
+                _PinInput_RESB_Low = value;
+            }
+        }
+
+        /// <summary>
+        /// Output.LOW indicates to other bus subscribers that a read-modify-write instruction is on the bus. 
+        /// Low in the last three cycles of ASL, DEC, INC, LSR, ROL, ROR, TRB, and TSB. HIGH otherwise.
+        /// </summary>
+        public bool PinOutputMLB_Low { get; private set; }
+
+        /// <summary>
+        /// Output. HIGH for entire cycle 65c02 is fetching an opcode.
+        /// </summary>
+        public bool PinOutputSYNC_High { get; private set; }
+
+        /// <summary>
+        /// Output.LOW indicates that a interrupt vectors are being addressed.
+        /// </summary>
+        public bool PinOutputVPB_Low {
+            get => _PinOutput_VPB_Low;
+            private set {
+                if (value != _PinOutput_VPB_Low) {
+                    _PinOutput_VPB_Low = value;
+                    // todo: invoke action?
+                }
+            }
+        }
 
         // === Properties ============================================================================================
         // Note from aaronmell: all properties are public to facilitate ease of debugging/testing.
@@ -214,12 +239,14 @@ namespace HostApp.Processor {
         /// Performs the next step on the processor.
         /// </summary>
         public void Step() {
-            if (!_PendingReset && !PinRESB_Low) {
+            if (!_PendingReset && !PinInputRESB_Low) {
                 // T0
+                PinOutputSYNC_High = true;
                 RegisterIR = ReadMemoryValue(RegisterPC);
                 SetDisassembly();
                 RegisterPC++;
                 // T1...T6 (including additional cycles for branch taken, page cross, etc.)
+                PinOutputSYNC_High = false;
                 ExecuteOpCode();
             }
             if (_PendingReset) {
@@ -228,7 +255,7 @@ namespace HostApp.Processor {
             else if (_PendingNMI) {
                 ProcessNMI();
             }
-            else if (PinIRQB_Low && !FlagI) {
+            else if (PinInputIRQB_Low && !FlagI) {
                 ProcessIRQ();
             }
         }
@@ -238,13 +265,12 @@ namespace HostApp.Processor {
         /// </summary>
         private void ProcessReset() {
             RegisterSP = 0x1FD;
-            // Set the Program Counter to the Reset Vector Address.
-            RegisterPC = 0xFFFC;
-            // Reset the Program Counter to the Address contained in the Reset Vector
-            RegisterPC = ReadMemoryValueWithoutCycle(RegisterPC) | (ReadMemoryValueWithoutCycle(RegisterPC + 1) << 8);
+            // Reset the Program Counter to the Address contained in the Reset Vector. This does not engage the VPB pin.
+            RegisterPC = ReadMemoryValueWithoutCycle(VectorRESET) | (ReadMemoryValueWithoutCycle(VectorRESET + 1) << 8);
             FlagI = true;
             _PendingReset = false;
             _PendingNMI = false;
+            _PinOutput_VPB_Low = false;
         }
 
         /// <summary>
@@ -275,7 +301,7 @@ namespace HostApp.Processor {
         private byte ReadMemoryValueWithoutCycle(int address) {
             byte value = 0xEA; // NOP
             if (_OnBusAction != null) {
-                value = _OnBusAction.Invoke(PinBE_Low ? 0 : address, 0, LOGIC_HIGH);
+                value = _OnBusAction.Invoke(PinInputBE_Low ? 0 : address, 0, LOGIC_HIGH);
             }
             return value;
         }
@@ -294,7 +320,7 @@ namespace HostApp.Processor {
         /// Writes data to the given address without incrementing the cycle.
         /// </summary>
         private void WriteMemoryValueWithoutCycle(int address, byte data) {
-            if (!PinBE_Low && _OnBusAction != null) {
+            if (!PinInputBE_Low && _OnBusAction != null) {
                 _OnBusAction(address, data, LOGIC_LOW);
             }
         }
@@ -344,91 +370,73 @@ namespace HostApp.Processor {
                     AddWithCarryOperation(EAddressingMode.AbsoluteX);
                     break;
                 //SBC Subtract with Borrow, Immediate, 2 Bytes, 2 Cycles
-                case 0xE9: {
+                case 0xE9:
                         SubtractWithBorrowOperation(EAddressingMode.Immediate);
                         break;
-                    }
                 //SBC Subtract with Borrow, Zero Page, 2 Bytes, 3 Cycles
-                case 0xE5: {
+                case 0xE5:
                         SubtractWithBorrowOperation(EAddressingMode.ZeroPage);
                         break;
-                    }
                 //SBC Subtract with Borrow, Zero Page X, 2 Bytes, 4 Cycles
-                case 0xF5: {
+                case 0xF5:
                         SubtractWithBorrowOperation(EAddressingMode.ZeroPageX);
                         break;
-                    }
                 //SBC Subtract with Borrow, Absolute, 3 Bytes, 4 Cycles
-                case 0xED: {
+                case 0xED:
                         SubtractWithBorrowOperation(EAddressingMode.Absolute);
                         break;
-                    }
                 //SBC Subtract with Borrow, Absolute X, 3 Bytes, 4+ Cycles
-                case 0xFD: {
+                case 0xFD:
                         SubtractWithBorrowOperation(EAddressingMode.AbsoluteX);
                         break;
-                    }
                 //SBC Subtract with Borrow, Absolute Y, 3 Bytes, 4+ Cycles
-                case 0xF9: {
+                case 0xF9:
                         SubtractWithBorrowOperation(EAddressingMode.AbsoluteY);
                         break;
-                    }
                 //SBC Subtract with Borrow, Indexed Indirect, 2 Bytes, 6 Cycles
-                case 0xE1: {
+                case 0xE1:
                         SubtractWithBorrowOperation(EAddressingMode.IndirectX);
                         break;
-                    }
                 //SBC Subtract with Borrow, Indexed Indirect, 2 Bytes, 5+ Cycles
-                case 0xF1: {
+                case 0xF1:
                         SubtractWithBorrowOperation(EAddressingMode.IndirectY);
                         break;
-                    }
 
                 // === Branch Operations =============================================================================
                 // ===================================================================================================
 
                 //BCC Branch if Carry is Clear, Relative, 2 Bytes, 2++ Cycles
-                case 0x90: {
+                case 0x90:
                         BranchOperation(!FlagC);
                         break;
-
-                    }
                 //BCS Branch if Carry is Set, Relative, 2 Bytes, 2++ Cycles
-                case 0xB0: {
+                case 0xB0:
                         BranchOperation(FlagC);
                         break;
-                    }
                 //BEQ Branch if Zero is Set, Relative, 2 Bytes, 2++ Cycles
-                case 0xF0: {
+                case 0xF0:
                         BranchOperation(FlagZ);
                         break;
-                    }
-
                 // BMI Branch if Negative Set
-                case 0x30: {
+                case 0x30:
                         BranchOperation(FlagN);
                         break;
-                    }
                 //BNE Branch if Zero is Not Set, Relative, 2 Bytes, 2++ Cycles
-                case 0xD0: {
+                case 0xD0:
                         BranchOperation(!FlagZ);
                         break;
-                    }
                 // BPL Branch if Negative Clear, 2 Bytes, 2++ Cycles
-                case 0x10: {
+                case 0x10:
                         BranchOperation(!FlagN);
                         break;
-                    }
                 // BVC Branch if Overflow Clear, 2 Bytes, 2++ Cycles
-                case 0x50: {
+                case 0x50:
                         BranchOperation(!FlagV);
                         break;
-                    }
                 // BVS Branch if Overflow Set, 2 Bytes, 2++ Cycles
-                case 0x70: {
+                case 0x70:
                         BranchOperation(FlagV);
                         break;
-                    }
 
                 // === BitWise Comparison Operations ============================================================================================
                 // ==============================================================================================================================
@@ -1415,102 +1423,73 @@ namespace HostApp.Processor {
             string disassembledStep = string.Empty;
 
             switch (addressMode) {
-                case EAddressingMode.Absolute: {
+                case EAddressingMode.Absolute:
                         disassembledStep = string.Format("${0}{1}", address2.Value.ToString("X").PadLeft(2, '0'), address1.Value.ToString("X").PadLeft(2, '0'));
                         break;
-                    }
-                case EAddressingMode.AbsoluteX: {
+                case EAddressingMode.AbsoluteX:
                         disassembledStep = string.Format("${0}{1},X", address2.Value.ToString("X").PadLeft(2, '0'), address1.Value.ToString("X").PadLeft(2, '0'));
                         break;
-                    }
-                case EAddressingMode.AbsoluteY: {
+                case EAddressingMode.AbsoluteY:
                         disassembledStep = string.Format("${0}{1},Y", address2.Value.ToString("X").PadLeft(2, '0'), address1.Value.ToString("X").PadLeft(2, '0'));
                         break;
-                    }
-                case EAddressingMode.Accumulator: {
+                case EAddressingMode.Accumulator:
                         address1 = null;
                         address2 = null;
-
                         disassembledStep = "A";
                         break;
-                    }
-                case EAddressingMode.Immediate: {
+                case EAddressingMode.Immediate:
                         disassembledStep = string.Format("#${0}", address1.Value.ToString("X").PadLeft(4, '0'));
                         address2 = null;
                         break;
-                    }
-                case EAddressingMode.Implied: {
+                case EAddressingMode.Implied:
                         address1 = null;
                         address2 = null;
                         break;
-                    }
-                case EAddressingMode.Indirect: {
+                case EAddressingMode.Indirect:
                         disassembledStep = string.Format("(${0}{1})", address2.Value.ToString("X").PadLeft(2, '0'), address1.Value.ToString("X").PadLeft(2, '0'));
                         break;
-                    }
-                case EAddressingMode.IndirectX: {
+                case EAddressingMode.IndirectX:
                         address2 = null;
-
                         disassembledStep = string.Format("(${0},X)", address1.Value.ToString("X").PadLeft(2, '0'));
                         break;
-                    }
-                case EAddressingMode.IndirectY: {
+                case EAddressingMode.IndirectY:
                         address2 = null;
-
                         disassembledStep = string.Format("(${0}),Y", address1.Value.ToString("X").PadLeft(2, '0'));
                         break;
-                    }
-                case EAddressingMode.Relative: {
+                case EAddressingMode.Relative:
                         var valueToMove = (byte)address1.Value;
-
                         var movement = valueToMove > 127 ? (valueToMove - 255) : valueToMove;
-
                         var newProgramCounter = RegisterPC + movement;
-
                         //This makes sure that we always land on the correct spot for a positive number
-                        if (movement >= 0)
+                        if (movement >= 0) {
                             newProgramCounter++;
-
+                        }
                         var stringAddress = RegisterPC.ToString("X").PadLeft(4, '0');
-
                         // address1 = int.Parse(stringAddress.Substring(0, 2), NumberStyles.AllowHexSpecifier);
                         address2 = null; // int.Parse(stringAddress.Substring(2, 2), NumberStyles.AllowHexSpecifier);
-
                         disassembledStep = string.Format("${0}", newProgramCounter.ToString("X").PadLeft(4, '0'));
-
                         break;
-                    }
-                case EAddressingMode.ZeroPage: {
+                case EAddressingMode.ZeroPage:
                         address2 = null;
-
                         disassembledStep = string.Format("${0}", address1.Value.ToString("X").PadLeft(2, '0'));
                         break;
-                    }
-                case EAddressingMode.ZeroPageX: {
+                case EAddressingMode.ZeroPageX:
                         address2 = null;
-
                         disassembledStep = string.Format("${0},X", address1.Value.ToString("X").PadLeft(2, '0'));
                         break;
-                    }
-                case EAddressingMode.ZeroPageY: {
+                case EAddressingMode.ZeroPageY:
                         address2 = null;
-
                         disassembledStep = string.Format("${0},Y", address1.Value.ToString("X").PadLeft(4, '0'));
                         break;
-                    }
                 default:
                     throw new InvalidEnumArgumentException("Invalid Addressing Mode");
-
             }
-
-
             CurrentDisassembly = new Disassembly {
                 HighAddress = address2.HasValue ? address2.Value.ToString("X").PadLeft(2, '0') : "  ",
                 LowAddress = address1.HasValue ? address1.Value.ToString("X").PadLeft(2, '0') : "  ",
                 OpCodeString = RegisterIR.ConvertOpCodeIntoString(),
                 DisassemblyOutput = disassembledStep
             };
-
             _Logger.Debug("{0} : {1} {2} {3} {4} {5} A: {6} X: {7} Y: {8} SP {9} N: {10} V: {11} B: {12} D: {13} I: {14} Z: {15} C: {16}",
                              RegisterPC.ToString("X4"),
                              RegisterIR.ToString("X2"),
@@ -1597,29 +1576,25 @@ namespace HostApp.Processor {
                 value = RegisterA;
             }
             else {
+                PinOutputMLB_Low = true;
                 memoryAddress = GetAddressByAddressingMode(addressingMode);
                 value = ReadMemoryValue(memoryAddress);
             }
-
             //Dummy Write
             if (addressingMode != EAddressingMode.Accumulator) {
                 WriteMemoryValue(memoryAddress, (byte)value);
             }
-
             //If the 7th bit is set, then we have a carry
             FlagC = ((value & 0x80) != 0);
-
             //The And here ensures that if the value is greater than 255 it wraps properly.
             value = (value << 1) & 0xFE;
-
             SetNegativeFlag(value);
             SetZeroFlag(value);
-
-
             if (addressingMode == EAddressingMode.Accumulator)
                 RegisterA = value;
             else {
                 WriteMemoryValue(memoryAddress, (byte)value);
+                PinOutputMLB_Low = false;
             }
         }
 
@@ -1676,20 +1651,18 @@ namespace HostApp.Processor {
         /// <param name="addressingMode">The addressing mode to use</param>
         /// <param name="decrement">If the operation is decrementing or incrementing the vaulue by 1 </param>
         private void ChangeMemoryByOne(EAddressingMode addressingMode, bool decrement) {
-            var memoryLocation = GetAddressByAddressingMode(addressingMode);
-            var memory = ReadMemoryValue(memoryLocation);
-
-            WriteMemoryValue(memoryLocation, memory);
-
-            if (decrement)
+            int memoryLocation = GetAddressByAddressingMode(addressingMode);
+            PinOutputMLB_Low = true;
+            byte memory = ReadMemoryValue(memoryLocation); // read
+            WriteMemoryValue(memoryLocation, memory); // dummy write?
+            if (decrement) // modify
                 memory -= 1;
             else
                 memory += 1;
-
             SetZeroFlag(memory);
             SetNegativeFlag(memory);
-
-            WriteMemoryValue(memoryLocation, memory);
+            WriteMemoryValue(memoryLocation, memory); // write back
+            PinOutputMLB_Low = false;
         }
 
         /// <summary>
@@ -1739,27 +1712,24 @@ namespace HostApp.Processor {
                 value = RegisterA;
             }
             else {
+                PinOutputMLB_Low = true;
                 memoryAddress = GetAddressByAddressingMode(addressingMode);
                 value = ReadMemoryValue(memoryAddress);
             }
-
             //Dummy Write
             if (addressingMode != EAddressingMode.Accumulator) {
                 WriteMemoryValue(memoryAddress, (byte)value);
             }
-
             FlagN = false;
-
             //If the Zero bit is set, we have a carry
             FlagC = (value & 0x01) != 0;
-
             value = (value >> 1);
-
             SetZeroFlag(value);
             if (addressingMode == EAddressingMode.Accumulator)
                 RegisterA = value;
             else {
                 WriteMemoryValue(memoryAddress, (byte)value);
+                PinOutputMLB_Low = false;
             }
         }
 
@@ -1786,34 +1756,29 @@ namespace HostApp.Processor {
                 value = RegisterA;
             }
             else {
+                PinOutputMLB_Low = true;
                 memoryAddress = GetAddressByAddressingMode(addressingMode);
                 value = ReadMemoryValue(memoryAddress);
             }
-
             //Dummy Write
             if (addressingMode != EAddressingMode.Accumulator) {
                 WriteMemoryValue(memoryAddress, (byte)value);
             }
-
             //Store the carry flag before shifting it
             var newCarry = (0x80 & value) != 0;
-
             //The And here ensures that if the value is greater than 255 it wraps properly.
             value = (value << 1) & 0xFE;
-
-            if (FlagC)
+            if (FlagC) {
                 value = value | 0x01;
-
+            }
             FlagC = newCarry;
-
             SetZeroFlag(value);
             SetNegativeFlag(value);
-
-
             if (addressingMode == EAddressingMode.Accumulator)
                 RegisterA = value;
             else {
                 WriteMemoryValue(memoryAddress, (byte)value);
+                PinOutputMLB_Low = false;
             }
         }
 
@@ -1830,33 +1795,29 @@ namespace HostApp.Processor {
                 value = RegisterA;
             }
             else {
+                PinOutputMLB_Low = true;
                 memoryAddress = GetAddressByAddressingMode(addressingMode);
                 value = ReadMemoryValue(memoryAddress);
             }
-
             //Dummy Write
             if (addressingMode != EAddressingMode.Accumulator) {
                 WriteMemoryValue(memoryAddress, (byte)value);
             }
-
             //Store the carry flag before shifting it
             var newCarry = (0x01 & value) != 0;
-
             value = (value >> 1);
-
             //If the carry flag is set then 0x
-            if (FlagC)
+            if (FlagC) {
                 value = value | 0x80;
-
+            }
             FlagC = newCarry;
-
             SetZeroFlag(value);
             SetNegativeFlag(value);
-
             if (addressingMode == EAddressingMode.Accumulator)
                 RegisterA = value;
             else {
                 WriteMemoryValue(memoryAddress, (byte)value);
+                PinOutputMLB_Low = false;
             }
         }
 
@@ -1977,7 +1938,13 @@ namespace HostApp.Processor {
 
             FlagI = true;
 
-            RegisterPC = (ReadMemoryValue(vector + 1) << 8) | ReadMemoryValue(vector);
+            ReadVectorAddressToPC(vector);
+        }
+
+        private void ReadVectorAddressToPC(int vector) {
+            PinOutputVPB_Low = true;
+            RegisterPC = ReadMemoryValue(vector) | (ReadMemoryValue(vector + 1) << 8);
+            PinOutputVPB_Low = false;
         }
 
         /// <summary>
@@ -2010,9 +1977,11 @@ namespace HostApp.Processor {
 	    private void ProcessNMI() {
             RegisterPC--;
             BreakOperation(false, VectorNMI);
+            PinOutputSYNC_High = true;
             RegisterIR = ReadMemoryValue(RegisterPC);
             SetDisassembly();
             _PendingNMI = false;
+            PinOutputSYNC_High = false;
         }
 
         /// <summary>
@@ -2021,8 +1990,10 @@ namespace HostApp.Processor {
         private void ProcessIRQ() {
             RegisterPC--;
             BreakOperation(false, VectorIRQ);
+            PinOutputSYNC_High = true;
             RegisterIR = ReadMemoryValue(RegisterPC);
             SetDisassembly();
+            PinOutputSYNC_High = false;
         }
     }
 }
