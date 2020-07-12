@@ -6,7 +6,7 @@ using System.IO;
 namespace HostApp {
     class Program {
         static void Main(string[] args) {
-            DoZaneTest();
+            // DoZaneTest();
             DoTest("1141 cycle test", "./tests/timingtest-with-end.bin", 0x01000, 0x01000, reportCycleCount: true);
             DoTest("Klaus 6502 functional test", "./tests/6502_functional_test.bin", manualPC: 0x400, reportCycleCount: true, successonPCequals: 0x3469);
             DoBenchmark();
@@ -17,9 +17,11 @@ namespace HostApp {
             int origin = 0x1000;
             platform.Memory[Sim6502.VectorRESET + 0] = (byte)(origin & 0xff);
             platform.Memory[Sim6502.VectorRESET + 1] = (byte)((origin >> 8) & 0xff);
-            platform.Memory[origin] = (byte)0x6C;
+            platform.Memory[origin] = (byte)0x7C;
             platform.Memory[origin + 1] = (byte)0x00;
             platform.Memory[origin + 2] = (byte)0x20;
+            platform.Memory[0x2000] = (byte)0x00;
+            platform.Memory[0x2000 + 1] = (byte)0x10;
             platform.Reset(true);
             while (true) {
                 platform.Processor.Step();

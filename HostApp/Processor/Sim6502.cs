@@ -514,6 +514,18 @@ namespace HostApp.Processor {
                 case 0x2C:
                     BitOperation(EAddressingMode.Absolute);
                     break;
+                //BIT Compare Memory with Accumulator, Zero Page X, 2 Bytes, 4 Cycles
+                case 0x34:
+                    BitOperation(EAddressingMode.ZeroPageX);
+                    break;
+                //BIT Compare Memory with Accumulator, Absolute X, 2 Bytes, 4 Cycles (65c02)
+                case 0x3C:
+                    BitOperation(EAddressingMode.AbsoluteX);
+                    break;
+                //BIT Compare Memory with Accumulator, Immediate, 2 Bytes, 2 Cycles (65c02)
+                case 0x89:
+                    BitOperation(EAddressingMode.Immediate);
+                    break;
                 //EOR Exclusive OR Memory with Accumulator, Immediate, 2 Bytes, 2 Cycles
                 case 0x49:
                     EorOperation(EAddressingMode.Immediate);
@@ -677,7 +689,7 @@ namespace HostApp.Processor {
 
                 // === Increment/Decrement Operations ===========================================================================================
                 // ==============================================================================================================================
-
+                
                 //DEC Decrement Memory by One, Zero Page, 2 Bytes, 5 Cycles
                 case 0xC6:
                     ChangeMemoryByOne(EAddressingMode.ZeroPage, true);
@@ -695,13 +707,17 @@ namespace HostApp.Processor {
                     ChangeMemoryByOne(EAddressingMode.AbsoluteX, true);
                     IncrementCycleCount();
                     break;
+                //DEC Decrement Accumulator by One, Implied, 1 Byte, 2 Cycles
+                case 0x3A:
+                    RegisterA = ChangeRegister(RegisterA, true);
+                    break;
                 //DEX Decrement X Register by One, Implied, 1 Bytes, 2 Cycles
                 case 0xCA:
-                    ChangeRegister(true, true);
+                    RegisterX = ChangeRegister(RegisterX, true);
                     break;
                 //DEY Decrement Y Register by One, Implied, 1 Bytes, 2 Cycles
                 case 0x88:
-                    ChangeRegister(false, true);
+                    RegisterY = ChangeRegister(RegisterY, true);
                     break;
                 //INC Increment Memory by One, Zero Page, 2 Bytes, 5 Cycles
                 case 0xE6:
@@ -720,28 +736,39 @@ namespace HostApp.Processor {
                     ChangeMemoryByOne(EAddressingMode.AbsoluteX, false);
                     IncrementCycleCount();
                     break;
-                //INX Increment X Register by One, Implied, 1 Bytes, 2 Cycles
-                case 0xE8:
-                    ChangeRegister(true, false);
+                // INC Increment Accumulator by One, Implied, 1 Byte, 2 Cycles
+                case 0x1A:
+                    RegisterA = ChangeRegister(RegisterA, false);
                     break;
-                //INY Increment Y Register by One, Implied, 1 Bytes, 2 Cycles
+                //INX Increment X Register by One, Implied, 1 Byte, 2 Cycles
+                case 0xE8:
+                    RegisterX = ChangeRegister(RegisterX, false);
+                    break;
+                //INY Increment Y Register by One, Implied, 1 Byte, 2 Cycles
                 case 0xC8:
-                    ChangeRegister(false, false);
+                    RegisterY = ChangeRegister(RegisterY, false);
                     break;
 
                 // === GOTO and GOSUB ===========================================================================================================
                 // ==============================================================================================================================
 
-                //JMP Jump to New Location, Absolute 3 Bytes, 3 Cycles
+                //JMP Jump to New Location, Absolute, 3 Bytes, 3 Cycles
                 case 0x4C:
                     RegisterPC = GetAddressByAddressingMode(EAddressingMode.Absolute);
                     break;
-                //JMP Jump to New Location, Indirect 3 Bytes, always 6 Cycles (Page boundary bug fixed on 65c02)
-                case 0x6C:
-                    RegisterPC = GetAddressByAddressingMode(EAddressingMode.Absolute);
-                    IncrementCycleCount();
-                    IncrementCycleCount();
-                    IncrementCycleCount();
+                //JMP Jump to New Location, Indirect, 3 Bytes, always 6 Cycles (Page boundary bug fixed on 65c02)
+                case 0x6C: {
+                        int address = GetAddressByAddressingMode(EAddressingMode.Absolute);
+                        RegisterPC = ReadMemoryValue(address) | (ReadMemoryValue(address + 1) << 8);
+                        IncrementCycleCount();
+                    }
+                    break;
+                //JMP Jump to New Location, Indirect X, 3 Bytes, 6 Cycles
+                case 0x7C: {
+                        int address = GetAddressByAddressingMode(EAddressingMode.AbsoluteX);
+                        RegisterPC = ReadMemoryValue(address) | (ReadMemoryValue(address + 1) << 8);
+                        IncrementCycleCount();
+                    }
                     break;
                 //JSR Jump to SubRoutine, Absolute, 3 Bytes, 6 Cycles
                 case 0x20:
@@ -1822,11 +1849,16 @@ namespace HostApp.Processor {
         /// </summary>
         /// <param name="addressingMode"></param>
         private void BitOperation(EAddressingMode addressingMode) {
-            var memoryValue = ReadMemoryValue(GetAddressByAddressingMode(addressingMode));
+            byte memoryValue;
+            if (addressingMode == EAddressingMode.Immediate) {
+                memoryValue = ReadMemoryValue(RegisterPC);
+                RegisterPC += 1;
+            }
+            else {
+                memoryValue = ReadMemoryValue(GetAddressByAddressingMode(addressingMode));
+            }
             var valueToCompare = memoryValue & RegisterA;
-
             FlagV = (memoryValue & 0x40) != 0;
-
             SetNegativeFlag(memoryValue);
             SetZeroFlag(valueToCompare);
         }
@@ -1870,12 +1902,11 @@ namespace HostApp.Processor {
         }
 
         /// <summary>
-        /// Changes a value in either the X or Y register by 1
+        /// Changes a value of a register (passed as value).
         /// </summary>
-        /// <param name="useXRegister">If the operation is using the X or Y register</param>
+        /// <param name="value">The current value of the register</param>
         /// <param name="decrement">If the operation is decrementing or incrementing the vaulue by 1 </param>
-        private void ChangeRegister(bool useXRegister, bool decrement) {
-            var value = useXRegister ? RegisterX : RegisterY;
+        private int ChangeRegister(int value, bool decrement) {
             if (decrement)
                 value -= 1;
             else
@@ -1887,10 +1918,7 @@ namespace HostApp.Processor {
             SetZeroFlag(value);
             SetNegativeFlag(value);
             IncrementCycleCount();
-            if (useXRegister)
-                RegisterX = value;
-            else
-                RegisterY = value;
+            return value;
         }
 
         /// <summary>

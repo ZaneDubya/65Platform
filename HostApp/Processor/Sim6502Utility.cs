@@ -105,6 +105,7 @@ namespace HostApp.Processor {
                     return "INC";
                 case 0x4C:  // JMP Absolute
                 case 0x6C:  // JMP Indirect
+                case 0x7C:  // JMP Absolute X
                     return "JMP";
                 case 0x20:  // JSR Absolute
                     return "JSR";
@@ -259,6 +260,7 @@ namespace HostApp.Processor {
                 case 0x1E: //ASL
                 case 0x3E: //ROL
                 case 0x5E: //LSR
+                case 0x7C: //JMP
                 case 0x7E: //ROR
                     return EAddressingMode.AbsoluteX;
                 case 0x19: //ORA
