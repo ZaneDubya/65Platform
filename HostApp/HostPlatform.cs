@@ -4,8 +4,9 @@ using System;
 namespace HostApp {
     class HostPlatform {
         public readonly Sim6502 Processor;
-
         private readonly byte[] _Memory = new byte[0x10000];
+
+        public byte[] Memory => _Memory;
 
         public HostPlatform(HostLogger logger) {
             Processor = new Sim6502(BusAction, null, logger);
@@ -61,5 +62,6 @@ namespace HostApp {
                 _Memory[i + offset] = program[i];
             }
         }
+
     }
 }

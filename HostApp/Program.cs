@@ -1,13 +1,31 @@
-﻿using System;
+﻿using HostApp.Processor;
+using System;
 using System.Diagnostics;
 using System.IO;
 
 namespace HostApp {
     class Program {
         static void Main(string[] args) {
+            DoZaneTest();
             DoTest("1141 cycle test", "./tests/timingtest-with-end.bin", 0x01000, 0x01000, reportCycleCount: true);
             DoTest("Klaus 6502 functional test", "./tests/6502_functional_test.bin", manualPC: 0x400, reportCycleCount: true, successonPCequals: 0x3469);
             DoBenchmark();
+        }
+
+        private static void DoZaneTest() {
+            HostPlatform platform = new HostPlatform(new HostLogger());
+            int origin = 0x1000;
+            platform.Memory[Sim6502.VectorRESET + 0] = (byte)(origin & 0xff);
+            platform.Memory[Sim6502.VectorRESET + 1] = (byte)((origin >> 8) & 0xff);
+            platform.Memory[origin] = (byte)0x6C;
+            platform.Memory[origin + 1] = (byte)0x00;
+            platform.Memory[origin + 2] = (byte)0x20;
+            platform.Reset(true);
+            while (true) {
+                platform.Processor.Step();
+                Console.WriteLine($"Cycles: {platform.Processor.CycleCount}");
+                Console.ReadKey();
+            }
         }
 
         private static void DoTest(string name, string path, int origin = 0, int? resetVector = null, int? manualPC = null, bool? reportCycleCount = false, bool manualStep = false, int? successonPCequals = null) {

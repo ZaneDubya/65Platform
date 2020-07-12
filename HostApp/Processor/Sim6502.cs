@@ -374,6 +374,10 @@ namespace HostApp.Processor {
                 case 0x71:
                     AddWithCarryOperation(EAddressingMode.IndirectY);
                     break;
+                //ADC Add With Carry, Indirect ZP, 2 Bytes, 5 Cycles (65c02)
+                case 0x72:
+                    AddWithCarryOperation(EAddressingMode.IndirectZP);
+                    break;
                 //ADC Add With Carry, Zero Page X, 2 Bytes, 4 Cycles
                 case 0x75:
                     AddWithCarryOperation(EAddressingMode.ZeroPageX);
@@ -418,6 +422,10 @@ namespace HostApp.Processor {
                 case 0xF1:
                     SubtractWithBorrowOperation(EAddressingMode.IndirectY);
                     break;
+                //SBC Subtract with Borrow, Indirect ZP, 2 Bytes, 5 Cycles (65c02)
+                case 0xF2:
+                    SubtractWithBorrowOperation(EAddressingMode.IndirectZP);
+                    break;
 
                 // === Branch Operations =============================================================================
                 // ===================================================================================================
@@ -442,19 +450,19 @@ namespace HostApp.Processor {
                 case 0x80:
                     BranchOperation(true);
                     break;
-                //BCC Branch if Carry is Clear, Relative, 2 Bytes, 2++ Cycles
+                // BCC Branch if Carry is Clear, Relative, 2 Bytes, 2++ Cycles
                 case 0x90:
                     BranchOperation(!FlagC);
                     break;
-                //BCS Branch if Carry is Set, Relative, 2 Bytes, 2++ Cycles
+                // BCS Branch if Carry is Set, Relative, 2 Bytes, 2++ Cycles
                 case 0xB0:
                     BranchOperation(FlagC);
                     break;
-                //BNE Branch if Zero is Not Set, Relative, 2 Bytes, 2++ Cycles
+                // BNE Branch if Zero is Not Set, Relative, 2 Bytes, 2++ Cycles
                 case 0xD0:
                     BranchOperation(!FlagZ);
                     break;
-                //BEQ Branch if Zero is Set, Relative, 2 Bytes, 2++ Cycles
+                // BEQ Branch if Zero is Set, Relative, 2 Bytes, 2++ Cycles
                 case 0xF0:
                     BranchOperation(FlagZ);
                     break;
@@ -494,6 +502,10 @@ namespace HostApp.Processor {
                 case 0x31:
                     AndOperation(EAddressingMode.IndirectY);
                     break;
+                // AND Compare Memory with Accumulator, Indirect ZP, 2 Bytes, 5 Cycles (65c02)
+                case 0x32:
+                    AndOperation(EAddressingMode.IndirectZP);
+                    break;
                 //BIT Compare Memory with Accumulator, Zero Page, 2 Bytes, 3 Cycles
                 case 0x24:
                     BitOperation(EAddressingMode.ZeroPage);
@@ -526,13 +538,17 @@ namespace HostApp.Processor {
                 case 0x59:
                     EorOperation(EAddressingMode.AbsoluteY);
                     break;
-                //EOR Exclusive OR Memory with Accumulator, IndexedIndirect, 2 Bytes 6 Cycles
+                //EOR Exclusive OR Memory with Accumulator, IndexedIndirect, 2 Bytes, 6 Cycles
                 case 0x41:
                     EorOperation(EAddressingMode.IndirectX);
                     break;
-                //EOR Exclusive OR Memory with Accumulator, IndirectIndexed, 2 Bytes 5 Cycles
+                //EOR Exclusive OR Memory with Accumulator, IndirectIndexed, 2 Bytes, 5 Cycles
                 case 0x51:
                     EorOperation(EAddressingMode.IndirectY);
+                    break;
+                //EOR Exclusive OR Memory with Accumulator, Indirect ZP, 2 Bytes, 5 Cycles (65c02)
+                case 0x52:
+                    EorOperation(EAddressingMode.IndirectZP);
                     break;
                 //ORA Compare Memory with Accumulator, Immediate, 2 Bytes, 2 Cycles
                 case 0x09:
@@ -566,26 +582,30 @@ namespace HostApp.Processor {
                 case 0x11:
                     OrOperation(EAddressingMode.IndirectY);
                     break;
+                //ORA Compare Memory with Accumulator, Indirect ZP, 2 Bytes, 5 Cycles
+                case 0x12:
+                    OrOperation(EAddressingMode.IndirectZP);
+                    break;
 
                 // === Clear Flag Operations ====================================================================================================
                 // ==============================================================================================================================
 
-                //CLC Clear Carry Flag, Implied, 1 Byte, 2 Cycles
+                // CLC Clear Carry Flag, Implied, 1 Byte, 2 Cycles
                 case 0x18:
                     FlagC = false;
                     IncrementCycleCount();
                     break;
-                //CLD Clear Decimal Flag, Implied, 1 Byte, 2 Cycles
+                // CLD Clear Decimal Flag, Implied, 1 Byte, 2 Cycles
                 case 0xD8:
                     FlagD = false;
                     IncrementCycleCount();
                     break;
-                //CLI Clear Interrupt Flag, Implied, 1 Byte, 2 Cycles
+                // CLI Clear Interrupt Flag, Implied, 1 Byte, 2 Cycles
                 case 0x58:
                     FlagI = false;
                     IncrementCycleCount();
                     break;
-                //CLV Clear Overflow Flag, Implied, 1 Byte, 2 Cycles
+                // CLV Clear Overflow Flag, Implied, 1 Byte, 2 Cycles
                 case 0xB8:
                     FlagV = false;
                     IncrementCycleCount();
@@ -625,6 +645,10 @@ namespace HostApp.Processor {
                 //CMP Compare Accumulator with Memory, Indirect Y, 2 Bytes, 5 Cycles
                 case 0xD1:
                     CompareOperation(EAddressingMode.IndirectY, RegisterA);
+                    break;
+                // CMP Compare Accumulator with Memory, Indirect ZP, 2 Bytes, 5 Cycles (65c02)
+                case 0xD2:
+                    CompareOperation(EAddressingMode.IndirectZP, RegisterA);
                     break;
                 //CPX Compare Accumulator with X Register, Immediate, 2 Bytes, 2 Cycles
                 case 0xE0:
@@ -712,20 +736,12 @@ namespace HostApp.Processor {
                 case 0x4C:
                     RegisterPC = GetAddressByAddressingMode(EAddressingMode.Absolute);
                     break;
-                //JMP Jump to New Location, Indirect 3 Bytes, 5 Cycles
+                //JMP Jump to New Location, Indirect 3 Bytes, always 6 Cycles (Page boundary bug fixed on 65c02)
                 case 0x6C:
                     RegisterPC = GetAddressByAddressingMode(EAddressingMode.Absolute);
-                    if ((RegisterPC & 0xFF) == 0xFF) {
-                        //Get the first half of the address
-                        int address = ReadMemoryValue(RegisterPC);
-
-                        //Get the second half of the address, due to the issue with page boundary it reads from the wrong location!
-                        address += 256 * ReadMemoryValue(RegisterPC - 255);
-                        RegisterPC = address;
-                    }
-                    else {
-                        RegisterPC = GetAddressByAddressingMode(EAddressingMode.Absolute);
-                    }
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    IncrementCycleCount();
                     break;
                 //JSR Jump to SubRoutine, Absolute, 3 Bytes, 6 Cycles
                 case 0x20:
@@ -792,6 +808,12 @@ namespace HostApp.Processor {
                 //LDA Load Accumulator with Memory, Indirect Index, 2 Bytes, 5+ Cycles
                 case 0xB1:
                     RegisterA = ReadMemoryValue(GetAddressByAddressingMode(EAddressingMode.IndirectY));
+                    SetZeroFlag(RegisterA);
+                    SetNegativeFlag(RegisterA);
+                    break;
+                // LDA Load Accumulator with Memory, Indirect ZP, 2 Bytes, 5+ Cycles
+                case 0xB2:
+                    RegisterA = ReadMemoryValue(GetAddressByAddressingMode(EAddressingMode.IndirectZP));
                     SetZeroFlag(RegisterA);
                     SetNegativeFlag(RegisterA);
                     break;
@@ -1075,6 +1097,11 @@ namespace HostApp.Processor {
                 case 0x91:
                     IncrementCycleCount();
                     WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.IndirectY), (byte)RegisterA);
+                    break;
+                //STA Store Accumulator In Memory, Indirect ZP, 2 Bytes, 6 Cycles
+                case 0x92:
+                    IncrementCycleCount();
+                    WriteMemoryValue(GetAddressByAddressingMode(EAddressingMode.IndirectZP), (byte)RegisterA);
                     break;
                 //STA Store Accumulator In Memory, Zero Page X, 2 Bytes, 4 Cycles
                 case 0x95:
@@ -1452,110 +1479,88 @@ namespace HostApp.Processor {
             int address;
             int highByte;
             switch (addressingMode) {
-                case (EAddressingMode.Absolute): {
-                        return (ReadMemoryValue(RegisterPC++) | (ReadMemoryValue(RegisterPC++) << 8));
-                    }
-                case EAddressingMode.AbsoluteX: {
-                        //Get the low half of the address
-                        address = ReadMemoryValue(RegisterPC++);
+                case (EAddressingMode.Absolute):
+                    return ReadMemoryValue(RegisterPC++) | (ReadMemoryValue(RegisterPC++) << 8);
+                case EAddressingMode.AbsoluteX:
+                    //Get the low half of the address
+                    address = ReadMemoryValue(RegisterPC++);
 
-                        //Get the high byte
-                        highByte = ReadMemoryValue(RegisterPC++);
+                    //Get the high byte
+                    highByte = ReadMemoryValue(RegisterPC++);
 
-                        //We crossed a page boundry, so an extra read has occurred.
-                        //However, if this is an ASL, LSR, DEC, INC, ROR, ROL or STA operation, we do not decrease it by 1.
-                        if (address + RegisterX > 0xFF) {
-                            switch (RegisterIR) {
-                                case 0x1E:
-                                case 0xDE:
-                                case 0xFE:
-                                case 0x5E:
-                                case 0x3E:
-                                case 0x7E:
-                                case 0x9D: {
-                                        //This is a Read Fetch Write Operation, so we don't make the extra read.
-                                        return ((highByte << 8 | address) + RegisterX) & 0xFFFF;
-                                    }
-                                default: {
-                                        ReadMemoryValue((((highByte << 8 | address) + RegisterX) - 0xFF) & 0xFFFF);
-                                        break;
-                                    }
-                            }
+                    //We crossed a page boundry, so an extra read has occurred.
+                    //However, if this is an ASL, LSR, DEC, INC, ROR, ROL or STA operation, we do not decrease it by 1.
+                    if (address + RegisterX > 0xFF) {
+                        switch (RegisterIR) {
+                            case 0x1E:
+                            case 0xDE:
+                            case 0xFE:
+                            case 0x5E:
+                            case 0x3E:
+                            case 0x7E:
+                            case 0x9D:
+                                //This is a Read Fetch Write Operation, so we don't make the extra read.
+                                return ((highByte << 8 | address) + RegisterX) & 0xFFFF;
+                            default:
+                                ReadMemoryValue((((highByte << 8 | address) + RegisterX) - 0xFF) & 0xFFFF);
+                                break;
                         }
-
-                        return ((highByte << 8 | address) + RegisterX) & 0xFFFF;
                     }
-                case EAddressingMode.AbsoluteY: {
-                        //Get the low half of the address
-                        address = ReadMemoryValue(RegisterPC++);
-
-                        //Get the high byte
-                        highByte = ReadMemoryValue(RegisterPC++);
-
-                        //We crossed a page boundry, so decrease the number of cycles by 1 if the operation is not STA
-                        if (address + RegisterY > 0xFF && RegisterIR != 0x99) {
-                            ReadMemoryValue((((highByte << 8 | address) + RegisterY) - 0xFF) & 0xFFFF);
-                        }
-
-                        //Bitshift the high byte into place, AND with FFFF to handle wrapping.
-                        return ((highByte << 8 | address) + RegisterY) & 0xFFFF;
+                    return ((highByte << 8 | address) + RegisterX) & 0xFFFF;
+                case EAddressingMode.AbsoluteY:
+                    //Get the low half of the address
+                    address = ReadMemoryValue(RegisterPC++);
+                    //Get the high byte
+                    highByte = ReadMemoryValue(RegisterPC++);
+                    //We crossed a page boundry, so decrease the number of cycles by 1 if the operation is not STA
+                    if (address + RegisterY > 0xFF && RegisterIR != 0x99) {
+                        ReadMemoryValue((((highByte << 8 | address) + RegisterY) - 0xFF) & 0xFFFF);
                     }
-                case EAddressingMode.Immediate: {
-                        return RegisterPC++;
+                    //Bitshift the high byte into place, AND with FFFF to handle wrapping.
+                    return ((highByte << 8 | address) + RegisterY) & 0xFFFF;
+                case EAddressingMode.Immediate:
+                    return RegisterPC++;
+                case EAddressingMode.IndirectX:
+                    //Get the location of the address to retrieve
+                    address = ReadMemoryValue(RegisterPC++);
+                    ReadMemoryValue(address);
+                    address += RegisterX;
+                    //Now get the final Address. The is not a zero page address either.
+                    var finalAddress = ReadMemoryValue((address & 0xFF)) | (ReadMemoryValue((address + 1) & 0xFF) << 8);
+                    return finalAddress;
+                case EAddressingMode.IndirectY:
+                    address = ReadMemoryValue(RegisterPC++);
+                    var idyAddress = ReadMemoryValue(address) + (ReadMemoryValue((address + 1) & 0xFF) << 8);
+                    if ((idyAddress & 0xFF) + RegisterY > 0xFF && RegisterIR != 0x91) {
+                        ReadMemoryValue((idyAddress + RegisterY - 0xFF) & 0xFFFF);
                     }
-                case EAddressingMode.IndirectX: {
-                        //Get the location of the address to retrieve
-                        address = ReadMemoryValue(RegisterPC++);
-                        ReadMemoryValue(address);
-
-                        address += RegisterX;
-
-                        //Now get the final Address. The is not a zero page address either.
-                        var finalAddress = ReadMemoryValue((address & 0xFF)) | (ReadMemoryValue((address + 1) & 0xFF) << 8);
-                        return finalAddress;
-                    }
-                case EAddressingMode.IndirectY: {
-                        address = ReadMemoryValue(RegisterPC++);
-
-                        var finalAddress = ReadMemoryValue(address) + (ReadMemoryValue((address + 1) & 0xFF) << 8);
-
-                        if ((finalAddress & 0xFF) + RegisterY > 0xFF && RegisterIR != 0x91) {
-                            ReadMemoryValue((finalAddress + RegisterY - 0xFF) & 0xFFFF);
-                        }
-
-                        return (finalAddress + RegisterY) & 0xFFFF;
-                    }
-                case EAddressingMode.Relative: {
-                        return RegisterPC;
-                    }
-                case (EAddressingMode.ZeroPage): {
-                        address = ReadMemoryValue(RegisterPC++);
+                    return (idyAddress + RegisterY) & 0xFFFF;
+                case EAddressingMode.Relative:
+                    return RegisterPC;
+                case EAddressingMode.ZeroPage:
+                    address = ReadMemoryValue(RegisterPC++);
+                    return address;
+                case EAddressingMode.ZeroPageX:
+                    address = ReadMemoryValue(RegisterPC++);
+                    ReadMemoryValue(address);
+                    address += RegisterX;
+                    address &= 0xFF;
+                    //This address wraps if its greater than 0xFF
+                    if (address > 0xFF) {
+                        address -= 0x100;
                         return address;
                     }
-                case (EAddressingMode.ZeroPageX): {
-                        address = ReadMemoryValue(RegisterPC++);
-                        ReadMemoryValue(address);
-
-                        address += RegisterX;
-                        address &= 0xFF;
-
-                        //This address wraps if its greater than 0xFF
-                        if (address > 0xFF) {
-                            address -= 0x100;
-                            return address;
-                        }
-
-                        return address;
-                    }
-                case (EAddressingMode.ZeroPageY): {
-                        address = ReadMemoryValue(RegisterPC++);
-                        ReadMemoryValue(address);
-
-                        address += RegisterY;
-                        address &= 0xFF;
-
-                        return address;
-                    }
+                    return address;
+                case EAddressingMode.ZeroPageY:
+                    address = ReadMemoryValue(RegisterPC++);
+                    ReadMemoryValue(address);
+                    address += RegisterY;
+                    address &= 0xFF;
+                    return address;
+                case EAddressingMode.IndirectZP:
+                    address = ReadMemoryValue(RegisterPC++);
+                    var idzpAddress = ReadMemoryValue(address) + (ReadMemoryValue((address + 1) & 0xFF) << 8);
+                    return idzpAddress;
                 default:
                     throw new InvalidOperationException(string.Format("The Address Mode '{0}' does not require an address", addressingMode));
             }
@@ -2114,18 +2119,18 @@ namespace HostApp.Processor {
         /// </summary>
         private void BreakOperation(bool isBrk, int vector) {
             ReadMemoryValue(++RegisterPC);
-            //Put the high value on the stack
-            //When we RTI the address will be incremented by one, and the address after a break will not be used.
+            // Put the high value on the stack
+            // When we RTI the address will be incremented by one, and the address after a break will not be used.
             PokeStack((byte)(((RegisterPC) >> 8) & 0xFF));
             RegisterSP--;
             IncrementCycleCount();
 
-            //Put the low value on the stack
+            // Put the low value on the stack
             PokeStack((byte)((RegisterPC) & 0xFF));
             RegisterSP--;
             IncrementCycleCount();
 
-            //We only set the Break Flag is a Break Occurs
+            // We only set the Break Flag if a Break Occurs
             if (isBrk) {
                 PokeStack((byte)(ConvertFlagsToByte(true) | 0x10));
             }
