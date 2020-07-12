@@ -2,7 +2,7 @@
 using System.ComponentModel;
 
 namespace HostApp.Processor {
-    public static class Utility {
+    public static class Sim6502Utility {
         public static string ConvertOpCodeIntoString(this int opcode) {
             switch (opcode) {
                 case 0x69:  // ADC Immediate

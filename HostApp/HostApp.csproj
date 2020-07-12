@@ -50,9 +50,8 @@
     <Compile Include="HostLogger.cs" />
     <Compile Include="HostPlatform.cs" />
     <Compile Include="Processor\EAddressingMode.cs" />
-    <Compile Include="Processor\Disassembly.cs" />
     <Compile Include="Processor\Sim6502.cs" />
-    <Compile Include="Processor\Utility.cs" />
+    <Compile Include="Processor\Sim6502Utility.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

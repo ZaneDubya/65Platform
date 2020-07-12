@@ -5,7 +5,8 @@ using System.Globalization;
 
 namespace HostApp.Processor {
     /// <summary>
-    /// An Implementation of a 6502 Processor, as implemented at aaronmell/6502Net
+    /// An implementation of a 65c02, based in great part on aaronmell/6502Net.
+    /// Licensed under the 2-Clause BSD License.
     /// </summary>
     sealed internal class Sim6502 {
 
@@ -33,6 +34,8 @@ namespace HostApp.Processor {
         private int _SP;
         private bool _PendingReset;
         private bool _PendingNMI;
+        private bool _WaitingForInterrupt = false;
+        private bool _Stopped = false;
         private bool _SignalInput_NMIB_Low = false;
         private bool _SignalInput_RESB_Low = false;
         private bool _SignalOutput_VPB_Low = false;
@@ -59,7 +62,8 @@ namespace HostApp.Processor {
 
         /// <summary>
         /// Input. Drive low (true) to signal an Interrupt Request.
-        /// If the FlagI bit is clear, the Emulator will start its IRQ handler so long as IRQB is low.
+        /// If the FlagI bit is clear, the processor will start its IRQ handler so long as IRQB is low.
+        /// If the FlagI bit is set, the processor handles the IRQ inline if it is waiting for an interrupt (after the WAI instruction).
         /// </summary>
         public bool SignalInputIRQB_Low = false;
 
@@ -92,10 +96,15 @@ namespace HostApp.Processor {
         }
 
         /// <summary>
-        /// Output.LOW indicates to other bus subscribers that a read-modify-write instruction is on the bus. 
+        /// Output. LOW indicates to other bus subscribers that a read-modify-write instruction is on the bus. 
         /// Low in the last three cycles of ASL, DEC, INC, LSR, ROL, ROR, TRB, and TSB. HIGH otherwise.
         /// </summary>
         public bool SignalOutputMLB_Low { get; private set; }
+
+        /// <summary>
+        /// Output. LOW indicates that the processor is stopped and ready to respond to an interrupt quickly.
+        /// </summary>
+        public bool SignalOutputRDY_Low => _WaitingForInterrupt;
 
         /// <summary>
         /// Output. HIGH for entire cycle 65c02 is fetching an opcode.
@@ -141,10 +150,6 @@ namespace HostApp.Processor {
         public int RegisterIR { get; private set; }
 
         /// <summary>
-        /// The disassembly of the current operation. This value is only set when the CPU is built in debug mode.
-        /// </summary>
-        public Disassembly CurrentDisassembly { get; private set; }
-        /// <summary>
         /// Points to the Current Address of the instruction being executed by the system. 
         /// The PC wraps when the value is greater than 65535, or less than 0. 
         /// </summary>
@@ -152,6 +157,7 @@ namespace HostApp.Processor {
             get { return _PC; }
             private set { _PC = WrapProgramCounter(value); }
         }
+
         /// <summary>
         /// Points to the Current Position of the Stack.
         /// This value is a 00-FF value but is offset to point to the location in memory where the stack resides.
@@ -239,7 +245,7 @@ namespace HostApp.Processor {
         /// Performs the next step on the processor.
         /// </summary>
         public void Step() {
-            if (!_PendingReset && !SignalInputRESB_Low) {
+            if (!_PendingReset && !_Stopped && !_WaitingForInterrupt) { // -- removed  && !SignalInputRESB_Low 7/12/2020 -zw, should be hnadled by _PendingReset
                 // T0
                 SignalOutputSYNC_High = true;
                 RegisterIR = ReadMemoryValue(RegisterPC);
@@ -252,11 +258,19 @@ namespace HostApp.Processor {
             if (_PendingReset) {
                 ProcessReset();
             }
+            else if (_Stopped) {
+                return;
+            }
             else if (_PendingNMI) {
                 ProcessNMI();
             }
-            else if (SignalInputIRQB_Low && !FlagI) {
-                ProcessIRQ();
+            else if (SignalInputIRQB_Low) {
+                if (!FlagI) {
+                    ProcessIRQ();
+                }
+                else if (_WaitingForInterrupt) {
+                    _WaitingForInterrupt = false; // resume
+                }
             }
         }
 
@@ -1310,6 +1324,22 @@ namespace HostApp.Processor {
                     OpSMB(7);
                     break;
 
+                // === WAIt and SToP ============================================================================================================
+                // ==============================================================================================================================
+
+                // WAI - WAit for Interrupt. Readies the processor to immediately recognize and respond to an interrupt, i.e. an IRQ, NMI, or RESET.
+                case 0xCB:
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    _WaitingForInterrupt = true;
+                    break;
+                // STP - Stops the clock input of the 65C02, effectively shutting down the 65C02 until a hardware reset occurs.
+                case 0xDB:
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    _Stopped = true;
+                    break;
+
                 // === NOP ======================================================================================================================
                 // ==============================================================================================================================
 
@@ -1587,7 +1617,7 @@ namespace HostApp.Processor {
             if (_Logger == null || !_Logger.IsDebugEnabled) {
                 return;
             }
-            EAddressingMode addressMode = Utility.GetAddressingMode(RegisterIR);
+            EAddressingMode addressMode = Sim6502Utility.GetAddressingMode(RegisterIR);
             int currentProgramCounter = RegisterPC;
 
             currentProgramCounter = WrapProgramCounter(++currentProgramCounter);
@@ -1660,20 +1690,15 @@ namespace HostApp.Processor {
                 default:
                     throw new InvalidEnumArgumentException("Invalid Addressing Mode");
             }
-            CurrentDisassembly = new Disassembly {
-                HighAddress = address2.HasValue ? address2.Value.ToString("X").PadLeft(2, '0') : "  ",
-                LowAddress = address1.HasValue ? address1.Value.ToString("X").PadLeft(2, '0') : "  ",
-                OpCodeString = RegisterIR.ConvertOpCodeIntoString(),
-                DisassemblyOutput = disassembledStep
-            };
+
             _Logger.Debug("{0} : {1} {2} {3} {4} {5} A: {6} X: {7} Y: {8} SP {9} N: {10} V: {11} B: {12} D: {13} I: {14} Z: {15} C: {16}",
                              RegisterPC.ToString("X4"),
                              RegisterIR.ToString("X2"),
-                             CurrentDisassembly.LowAddress,
-                             CurrentDisassembly.HighAddress,
+                             address1.HasValue ? address1.Value.ToString("X").PadLeft(2, '0') : "  ",
+                             address2.HasValue ? address2.Value.ToString("X").PadLeft(2, '0') : "  ",
 
-                             CurrentDisassembly.OpCodeString,
-                             CurrentDisassembly.DisassemblyOutput.PadRight(10, ' '),
+                             RegisterIR.ConvertOpCodeIntoString(),
+                             disassembledStep.PadRight(10, ' '),
 
                              RegisterA.ToString("X").PadLeft(3, '0'),
                              RegisterX.ToString("X").PadLeft(3, '0'),
