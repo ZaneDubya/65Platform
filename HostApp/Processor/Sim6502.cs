@@ -581,141 +581,115 @@ namespace HostApp.Processor {
                 // ==============================================================================================================================
 
                 //CMP Compare Accumulator with Memory, Immediate, 2 Bytes, 2 Cycles
-                case 0xC9: {
-                        CompareOperation(EAddressingMode.Immediate, RegisterA);
-                        break;
-                    }
+                case 0xC9:
+                    CompareOperation(EAddressingMode.Immediate, RegisterA);
+                    break;
                 //CMP Compare Accumulator with Memory, Zero Page, 2 Bytes, 3 Cycles
-                case 0xC5: {
-                        CompareOperation(EAddressingMode.ZeroPage, RegisterA);
-                        break;
-                    }
+                case 0xC5:
+                    CompareOperation(EAddressingMode.ZeroPage, RegisterA);
+                    break;
                 //CMP Compare Accumulator with Memory, Zero Page x, 2 Bytes, 4 Cycles
-                case 0xD5: {
-                        CompareOperation(EAddressingMode.ZeroPageX, RegisterA);
-                        break;
-                    }
+                case 0xD5:
+                    CompareOperation(EAddressingMode.ZeroPageX, RegisterA);
+                    break;
                 //CMP Compare Accumulator with Memory, Absolute, 3 Bytes, 4 Cycles
-                case 0xCD: {
-                        CompareOperation(EAddressingMode.Absolute, RegisterA);
-                        break;
-                    }
+                case 0xCD:
+                    CompareOperation(EAddressingMode.Absolute, RegisterA);
+                    break;
                 //CMP Compare Accumulator with Memory, Absolute X, 2 Bytes, 4 Cycles
-                case 0xDD: {
-                        CompareOperation(EAddressingMode.AbsoluteX, RegisterA);
-                        break;
-                    }
+                case 0xDD:
+                    CompareOperation(EAddressingMode.AbsoluteX, RegisterA);
+                    break;
                 //CMP Compare Accumulator with Memory, Absolute Y, 2 Bytes, 4 Cycles
-                case 0xD9: {
-                        CompareOperation(EAddressingMode.AbsoluteY, RegisterA);
-                        break;
-                    }
+                case 0xD9:
+                    CompareOperation(EAddressingMode.AbsoluteY, RegisterA);
+                    break;
                 //CMP Compare Accumulator with Memory, Indirect X, 2 Bytes, 6 Cycles
-                case 0xC1: {
-                        CompareOperation(EAddressingMode.IndirectX, RegisterA);
-                        break;
-                    }
+                case 0xC1:
+                    CompareOperation(EAddressingMode.IndirectX, RegisterA);
+                    break;
                 //CMP Compare Accumulator with Memory, Indirect Y, 2 Bytes, 5 Cycles
-                case 0xD1: {
-                        CompareOperation(EAddressingMode.IndirectY, RegisterA);
-                        break;
-                    }
+                case 0xD1:
+                    CompareOperation(EAddressingMode.IndirectY, RegisterA);
+                    break;
                 //CPX Compare Accumulator with X Register, Immediate, 2 Bytes, 2 Cycles
-                case 0xE0: {
-                        CompareOperation(EAddressingMode.Immediate, RegisterX);
-                        break;
-                    }
+                case 0xE0:
+                    CompareOperation(EAddressingMode.Immediate, RegisterX);
+                    break;
                 //CPX Compare Accumulator with X Register, Zero Page, 2 Bytes, 3 Cycles
-                case 0xE4: {
-                        CompareOperation(EAddressingMode.ZeroPage, RegisterX);
-                        break;
-                    }
+                case 0xE4:
+                    CompareOperation(EAddressingMode.ZeroPage, RegisterX);
+                    break;
                 //CPX Compare Accumulator with X Register, Absolute, 3 Bytes, 4 Cycles
-                case 0xEC: {
-                        CompareOperation(EAddressingMode.Absolute, RegisterX);
-                        break;
-                    }
+                case 0xEC:
+                    CompareOperation(EAddressingMode.Absolute, RegisterX);
+                    break;
                 //CPY Compare Accumulator with Y Register, Immediate, 2 Bytes, 2 Cycles
-                case 0xC0: {
-                        CompareOperation(EAddressingMode.Immediate, RegisterY);
-                        break;
-                    }
+                case 0xC0:
+                    CompareOperation(EAddressingMode.Immediate, RegisterY);
+                    break;
                 //CPY Compare Accumulator with Y Register, Zero Page, 2 Bytes, 3 Cycles
-                case 0xC4: {
-                        CompareOperation(EAddressingMode.ZeroPage, RegisterY);
-                        break;
-                    }
+                case 0xC4:
+                    CompareOperation(EAddressingMode.ZeroPage, RegisterY);
+                    break;
                 //CPY Compare Accumulator with Y Register, Absolute, 3 Bytes, 4 Cycles
-                case 0xCC: {
-                        CompareOperation(EAddressingMode.Absolute, RegisterY);
-                        break;
-                    }
+                case 0xCC:
+                    CompareOperation(EAddressingMode.Absolute, RegisterY);
+                    break;
 
                 // === Increment/Decrement Operations ===========================================================================================
                 // ==============================================================================================================================
 
                 //DEC Decrement Memory by One, Zero Page, 2 Bytes, 5 Cycles
-                case 0xC6: {
-                        ChangeMemoryByOne(EAddressingMode.ZeroPage, true);
-                        break;
-                    }
+                case 0xC6:
+                    ChangeMemoryByOne(EAddressingMode.ZeroPage, true);
+                    break;
                 //DEC Decrement Memory by One, Zero Page X, 2 Bytes, 6 Cycles
-                case 0xD6: {
-                        ChangeMemoryByOne(EAddressingMode.ZeroPageX, true);
-                        break;
-                    }
+                case 0xD6:
+                    ChangeMemoryByOne(EAddressingMode.ZeroPageX, true);
+                    break;
                 //DEC Decrement Memory by One, Absolute, 3 Bytes, 6 Cycles
-                case 0xCE: {
-                        ChangeMemoryByOne(EAddressingMode.Absolute, true);
-                        break;
-                    }
+                case 0xCE:
+                    ChangeMemoryByOne(EAddressingMode.Absolute, true);
+                    break;
                 //DEC Decrement Memory by One, Absolute X, 3 Bytes, 7 Cycles
-                case 0xDE: {
-                        ChangeMemoryByOne(EAddressingMode.AbsoluteX, true);
-                        IncrementCycleCount();
-                        break;
-                    }
+                case 0xDE:
+                    ChangeMemoryByOne(EAddressingMode.AbsoluteX, true);
+                    IncrementCycleCount();
+                    break;
                 //DEX Decrement X Register by One, Implied, 1 Bytes, 2 Cycles
-                case 0xCA: {
-                        ChangeRegister(true, true);
-                        break;
-                    }
+                case 0xCA:
+                    ChangeRegister(true, true);
+                    break;
                 //DEY Decrement Y Register by One, Implied, 1 Bytes, 2 Cycles
-                case 0x88: {
-                        ChangeRegister(false, true);
-                        break;
-                    }
+                case 0x88:
+                    ChangeRegister(false, true);
+                    break;
                 //INC Increment Memory by One, Zero Page, 2 Bytes, 5 Cycles
-                case 0xE6: {
-                        ChangeMemoryByOne(EAddressingMode.ZeroPage, false);
-                        break;
-                    }
+                case 0xE6:
+                    ChangeMemoryByOne(EAddressingMode.ZeroPage, false);
+                    break;
                 //INC Increment Memory by One, Zero Page X, 2 Bytes, 6 Cycles
-                case 0xF6: {
-                        ChangeMemoryByOne(EAddressingMode.ZeroPageX, false);
-                        break;
-                    }
+                case 0xF6:
+                    ChangeMemoryByOne(EAddressingMode.ZeroPageX, false);
+                    break;
                 //INC Increment Memory by One, Absolute, 3 Bytes, 6 Cycles
-                case 0xEE: {
-                        ChangeMemoryByOne(EAddressingMode.Absolute, false);
-                        break;
-                    }
+                case 0xEE:
+                    ChangeMemoryByOne(EAddressingMode.Absolute, false);
+                    break;
                 //INC Increment Memory by One, Absolute X, 3 Bytes, 7 Cycles
-                case 0xFE: {
-                        ChangeMemoryByOne(EAddressingMode.AbsoluteX, false);
-                        IncrementCycleCount();
-                        break;
-                    }
+                case 0xFE:
+                    ChangeMemoryByOne(EAddressingMode.AbsoluteX, false);
+                    IncrementCycleCount();
+                    break;
                 //INX Increment X Register by One, Implied, 1 Bytes, 2 Cycles
-                case 0xE8: {
-                        ChangeRegister(true, false);
-                        break;
-                    }
+                case 0xE8:
+                    ChangeRegister(true, false);
+                    break;
                 //INY Increment Y Register by One, Implied, 1 Bytes, 2 Cycles
-                case 0xC8: {
-                        ChangeRegister(false, false);
-                        break;
-                    }
+                case 0xC8:
+                    ChangeRegister(false, false);
+                    break;
 
                 // === GOTO and GOSUB ===========================================================================================================
                 // ==============================================================================================================================
