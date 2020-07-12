@@ -8,8 +8,8 @@ namespace HostApp {
         static void Main(string[] args) {
             // DoZaneTest();
             // DoTest("1141 cycle test", "./tests/timingtest-with-end.bin", 0x01000, 0x01000, reportCycleCount: true);
+            DoTest("Klaus 6502 functional test", "./tests/6502_functional_test.bin", manualPC: 0x400, reportCycleCount: true);
             DoTest("Klaus 65c02 extended test", "./tests/65C02_extended_opcodes_test.bin", manualPC: 0x400, reportCycleCount: true);
-            // DoTest("Klaus 6502 functional test", "./tests/6502_functional_test.bin", manualPC: 0x400, reportCycleCount: true, successonPCequals: 0x3469);
             DoBenchmark();
         }
 
@@ -31,7 +31,7 @@ namespace HostApp {
             }
         }
 
-        private static void DoTest(string name, string path, int origin = 0, int? resetVector = null, int? manualPC = null, bool? reportCycleCount = false, bool manualStep = false, int? successonPCequals = null) {
+        private static void DoTest(string name, string path, int origin = 0, int? resetVector = null, int? manualPC = null, bool? reportCycleCount = false, bool manualStep = false) {
             HostPlatform platform = new HostPlatform(new HostLogger());
             if (resetVector.HasValue) {
                 platform.LoadProgram(origin, File.ReadAllBytes(path), resetVector.Value);
@@ -45,12 +45,15 @@ namespace HostApp {
             }
             Stopwatch watch = new Stopwatch();
             watch.Start();
+            int lastPC = 0;
             try {
                 while (true) {
                     platform.Processor.Step();
-                    if (successonPCequals.HasValue && successonPCequals.Value == platform.Processor.RegisterPC) {
+                    if (lastPC == platform.Processor.RegisterPC) {
+                        platform.Processor.Step();
                         break;
                     }
+                    lastPC = platform.Processor.RegisterPC;
                     if (manualStep) {
                         Console.ReadKey();
                     }
@@ -64,7 +67,7 @@ namespace HostApp {
             watch.Stop();
             double mhz = platform.Processor.CycleCount / ((double)watch.ElapsedMilliseconds * 1000);
             if (reportCycleCount.Value == true) {
-                Console.WriteLine($"{name} complete in {platform.Processor.CycleCount - 1} cycles ({mhz:F4} mhz).");
+                Console.WriteLine($"{name} complete at {lastPC:X4} in {platform.Processor.CycleCount - 1} cycles ({mhz:F4} mhz).");
             }
             else {
                 Console.WriteLine($"{name} complete.");

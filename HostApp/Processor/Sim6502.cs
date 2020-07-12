@@ -249,7 +249,7 @@ namespace HostApp.Processor {
                 // T0
                 SignalOutputSYNC_High = true;
                 RegisterIR = ReadMemoryValue(RegisterPC);
-                SetDisassembly();
+                Sim6502Utility.SetDisassembly(this, _Logger);
                 RegisterPC++;
                 // T1...T6 (including additional cycles for branch taken, page cross, etc.)
                 SignalOutputSYNC_High = false;
@@ -312,7 +312,7 @@ namespace HostApp.Processor {
         /// <summary>
         /// Returns the byte at a given address without incrementing the cycle.
         /// </summary>
-        private byte ReadMemoryValueWithoutCycle(int address) {
+        internal byte ReadMemoryValueWithoutCycle(int address) {
             byte value = 0xEA; // NOP
             if (_OnBusAction != null) {
                 value = _OnBusAction.Invoke(SignalInputBE_Low ? 0 : address, 0, LOGIC_HIGH);
@@ -936,14 +936,15 @@ namespace HostApp.Processor {
                     break;
                 // PLA Pull Accumulator from Stack, Implied, 1 Byte, 4 Cycles
                 case 0x68:
+                    // T1
                     ReadMemoryValue(RegisterPC + 1); // dummy read?
                     RegisterSP++;
                     IncrementCycleCount();
-
+                    // T2
                     RegisterA = PeekStack();
+                    // T3
                     SetNegativeFlag(RegisterA);
                     SetZeroFlag(RegisterA);
-
                     IncrementCycleCount();
                     break;
                 // TXS Transfer X Register to Stack Pointer, 1 Bytes, 2 Cycles
@@ -1229,7 +1230,7 @@ namespace HostApp.Processor {
                 case 0x04:
                     OpTSB(EAddressingMode.ZeroPage);
                     break;
-                // TSB Test and set bits, absolute, 2 bytes, 6 cycles (65c02 / 65c816)
+                // TSB Test and set bits, Absolute, 2 bytes, 6 cycles (65c02 / 65c816)
                 case 0x0C:
                     OpTSB(EAddressingMode.Absolute);
                     break;
@@ -1237,7 +1238,7 @@ namespace HostApp.Processor {
                 case 0x14:
                     OpTRB(EAddressingMode.ZeroPage);
                     break;
-                // TRB Test and clear bits, ZP, 2 bytes, 5 cycles (65c02 / 65c816)
+                // TRB Test and clear bits, Absolute, 2 bytes, 6 cycles (65c02 / 65c816)
                 case 0x1C:
                     OpTRB(EAddressingMode.Absolute);
                     break;
@@ -1397,8 +1398,87 @@ namespace HostApp.Processor {
                 // === NOP ======================================================================================================================
                 // ==============================================================================================================================
 
-                //NOP Operation, Implied, 1 Byte, 2 Cycles
+                // 6502 NOP, Implied, 1 Byte, 2 Cycles
                 case 0xEA:
+                    IncrementCycleCount();
+                    break;
+                // 65c02 NOP, Implied, 1 byte, 1 cycle
+                case 0x03:
+                case 0x13:
+                case 0x23:
+                case 0x33:
+                case 0x43:
+                case 0x53:
+                case 0x63:
+                case 0x73:
+                case 0x83:
+                case 0x93:
+                case 0xA3:
+                case 0xB3:
+                case 0xC3:
+                case 0xD3:
+                case 0xE3:
+                case 0xF3:
+                case 0x0B:
+                case 0x1B:
+                case 0x2B:
+                case 0x3B:
+                case 0x4B:
+                case 0x5B:
+                case 0x6B:
+                case 0x7B:
+                case 0x8B:
+                case 0x9B:
+                case 0xAB:
+                case 0xBB:
+                case 0xEB:
+                case 0xFB:
+                    break;
+                // 65c02 NOP, Immediate, 2 bytes, 2 cycles
+                case 0x02:
+                case 0x22:
+                case 0x42:
+                case 0x62:
+                case 0x82:
+                case 0xC2:
+                case 0xE2:
+                    RegisterPC++;
+                    IncrementCycleCount();
+                    break;
+                // 65c02 NOP, Immediate, 2 bytes, 3 cycles
+                case 0x44:
+                    RegisterPC++;
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    break;
+                // 65c02 NOP, Immediate, 2 bytes, 4 cycles
+                case 0x54:
+                case 0xD4:
+                case 0xF4:
+                    RegisterPC++;
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    break;
+                // 65c02 NOP, Absolute, 3 bytes, 8 cycles
+                case 0x5C:
+                    RegisterPC++;
+                    RegisterPC++;
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    IncrementCycleCount();
+                    break;
+                // 65c02 NOP, Absolute, 3 bytes, 4 cycles
+                case 0xDC:
+                case 0xFC:
+                    RegisterPC++;
+                    RegisterPC++;
+                    IncrementCycleCount();
+                    IncrementCycleCount();
                     IncrementCycleCount();
                     break;
                 default:
@@ -1416,7 +1496,7 @@ namespace HostApp.Processor {
         private void OpBBR(int bit) {
             byte memoryValue = ReadMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPage));
             IncrementCycleCount();
-            BranchOperation((memoryValue & (2 ^ bit)) == 0);
+            BranchOperation((memoryValue & (1 << bit)) == 0);
         }
 
         /// <summary>
@@ -1426,7 +1506,7 @@ namespace HostApp.Processor {
         private void OpBBS(int bit) {
             byte memoryValue = ReadMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPage));
             IncrementCycleCount();
-            BranchOperation((memoryValue & (2 ^ bit)) != 0);
+            BranchOperation((memoryValue & (1 << bit)) != 0);
         }
 
         /// <summary>
@@ -1436,7 +1516,7 @@ namespace HostApp.Processor {
         private void OpRMB(int bit) {
             int address = GetAddressByAddressingMode(EAddressingMode.ZeroPage);
             byte memoryValue = ReadMemoryValue(address);
-            memoryValue = (byte)(bit | (2 ^ bit));
+            memoryValue = (byte)(memoryValue & ~(1 << bit));
             WriteMemoryValue(address, memoryValue);
         }
 
@@ -1447,7 +1527,7 @@ namespace HostApp.Processor {
         private void OpSMB(int bit) {
             int address = GetAddressByAddressingMode(EAddressingMode.ZeroPage);
             byte memoryValue = ReadMemoryValue(address);
-            memoryValue = (byte)(bit & ~(2 ^ bit));
+            memoryValue = (byte)(memoryValue | (1 << bit));
             WriteMemoryValue(address, memoryValue);
         }
 
@@ -1472,7 +1552,7 @@ namespace HostApp.Processor {
             byte memoryValue = ReadMemoryValue(address);
             int zeroCheckValue = memoryValue & RegisterA;
             int value = memoryValue | RegisterA;
-            SetZeroFlag(value);
+            SetZeroFlag(zeroCheckValue);
             IncrementCycleCount();
             WriteMemoryValue(address, (byte)value);
         }
@@ -1644,108 +1724,7 @@ namespace HostApp.Processor {
                          (FlagD ? 8 : 0) + (setBreak ? 0x10 : 0) + 0x20 + (FlagV ? 0x40 : 0) + (FlagN ? 0x80 : 0));
         }
 
-        [Conditional("DEBUG")]
-        private void SetDisassembly() {
-            if (_Logger == null || !_Logger.IsDebugEnabled) {
-                return;
-            }
-            EAddressingMode addressMode = Sim6502Utility.GetAddressingMode(RegisterIR);
-            int currentProgramCounter = RegisterPC;
-
-            currentProgramCounter = WrapProgramCounter(++currentProgramCounter);
-            int? address1 = ReadMemoryValueWithoutCycle(currentProgramCounter);
-
-            currentProgramCounter = WrapProgramCounter(++currentProgramCounter);
-            int? address2 = ReadMemoryValueWithoutCycle(currentProgramCounter);
-
-            string disassembledStep = string.Empty;
-
-            switch (addressMode) {
-                case EAddressingMode.Absolute:
-                        disassembledStep = string.Format("${0}{1}", address2.Value.ToString("X").PadLeft(2, '0'), address1.Value.ToString("X").PadLeft(2, '0'));
-                        break;
-                case EAddressingMode.AbsoluteX:
-                        disassembledStep = string.Format("${0}{1},X", address2.Value.ToString("X").PadLeft(2, '0'), address1.Value.ToString("X").PadLeft(2, '0'));
-                        break;
-                case EAddressingMode.AbsoluteY:
-                        disassembledStep = string.Format("${0}{1},Y", address2.Value.ToString("X").PadLeft(2, '0'), address1.Value.ToString("X").PadLeft(2, '0'));
-                        break;
-                case EAddressingMode.Accumulator:
-                        address1 = null;
-                        address2 = null;
-                        disassembledStep = "A";
-                        break;
-                case EAddressingMode.Immediate:
-                        disassembledStep = string.Format("#${0}", address1.Value.ToString("X").PadLeft(4, '0'));
-                        address2 = null;
-                        break;
-                case EAddressingMode.Implicit:
-                        address1 = null;
-                        address2 = null;
-                        break;
-                case EAddressingMode.Indirect:
-                        disassembledStep = string.Format("(${0}{1})", address2.Value.ToString("X").PadLeft(2, '0'), address1.Value.ToString("X").PadLeft(2, '0'));
-                        break;
-                case EAddressingMode.IndirectX:
-                        address2 = null;
-                        disassembledStep = string.Format("(${0},X)", address1.Value.ToString("X").PadLeft(2, '0'));
-                        break;
-                case EAddressingMode.IndirectY:
-                        address2 = null;
-                        disassembledStep = string.Format("(${0}),Y", address1.Value.ToString("X").PadLeft(2, '0'));
-                        break;
-                case EAddressingMode.Relative:
-                        var valueToMove = (byte)address1.Value;
-                        var movement = valueToMove > 127 ? (valueToMove - 255) : valueToMove;
-                        var newProgramCounter = RegisterPC + movement;
-                        //This makes sure that we always land on the correct spot for a positive number
-                        if (movement >= 0) {
-                            newProgramCounter++;
-                        }
-                        var stringAddress = RegisterPC.ToString("X").PadLeft(4, '0');
-                        // address1 = int.Parse(stringAddress.Substring(0, 2), NumberStyles.AllowHexSpecifier);
-                        address2 = null; // int.Parse(stringAddress.Substring(2, 2), NumberStyles.AllowHexSpecifier);
-                        disassembledStep = string.Format("${0}", newProgramCounter.ToString("X").PadLeft(4, '0'));
-                        break;
-                case EAddressingMode.ZeroPage:
-                        address2 = null;
-                        disassembledStep = string.Format("${0}", address1.Value.ToString("X").PadLeft(2, '0'));
-                        break;
-                case EAddressingMode.ZeroPageX:
-                        address2 = null;
-                        disassembledStep = string.Format("${0},X", address1.Value.ToString("X").PadLeft(2, '0'));
-                        break;
-                case EAddressingMode.ZeroPageY:
-                        address2 = null;
-                        disassembledStep = string.Format("${0},Y", address1.Value.ToString("X").PadLeft(4, '0'));
-                        break;
-                default:
-                    throw new InvalidEnumArgumentException("Invalid Addressing Mode");
-            }
-
-            _Logger.Debug("{0} : {1} {2} {3} {4} {5} A: {6} X: {7} Y: {8} SP {9} N: {10} V: {11} B: {12} D: {13} I: {14} Z: {15} C: {16}",
-                             RegisterPC.ToString("X4"),
-                             RegisterIR.ToString("X2"),
-                             address1.HasValue ? address1.Value.ToString("X").PadLeft(2, '0') : "  ",
-                             address2.HasValue ? address2.Value.ToString("X").PadLeft(2, '0') : "  ",
-
-                             RegisterIR.ConvertOpCodeIntoString(),
-                             disassembledStep.PadRight(10, ' '),
-
-                             RegisterA.ToString("X").PadLeft(3, '0'),
-                             RegisterX.ToString("X").PadLeft(3, '0'),
-                             RegisterY.ToString("X").PadLeft(3, '0'),
-                             RegisterSP.ToString("X").PadLeft(3, '0'),
-                             Convert.ToInt16(FlagN),
-                             Convert.ToInt16(FlagV),
-                             0,
-                             Convert.ToInt16(FlagD),
-                             Convert.ToInt16(FlagI),
-                             Convert.ToInt16(FlagZ),
-                             Convert.ToInt16(FlagC));
-        }
-
-        private int WrapProgramCounter(int value) {
+        internal int WrapProgramCounter(int value) {
             return value & 0xFFFF;
         }
 
@@ -1857,9 +1836,11 @@ namespace HostApp.Processor {
             else {
                 memoryValue = ReadMemoryValue(GetAddressByAddressingMode(addressingMode));
             }
-            var valueToCompare = memoryValue & RegisterA;
-            FlagV = (memoryValue & 0x40) != 0;
-            SetNegativeFlag(memoryValue);
+            int valueToCompare = memoryValue & RegisterA;
+            if (addressingMode != EAddressingMode.Immediate) {
+                FlagV = (memoryValue & 0x40) != 0;
+                SetNegativeFlag(memoryValue);
+            }
             SetZeroFlag(valueToCompare);
         }
 
@@ -2160,7 +2141,8 @@ namespace HostApp.Processor {
 
             // We only set the Break Flag if a Break Occurs
             if (isBrk) {
-                PokeStack((byte)(ConvertFlagsToByte(true) | 0x10));
+                byte flags = (byte)((ConvertFlagsToByte(true) | 0x10)); // set break flag
+                PokeStack(flags);
             }
             else {
                 PokeStack(ConvertFlagsToByte(false));
@@ -2169,6 +2151,9 @@ namespace HostApp.Processor {
             IncrementCycleCount();
 
             FlagI = true;
+            if (isBrk) {
+                FlagD = false;
+            }
 
             ReadVectorAddressToPC(vector);
         }
@@ -2211,7 +2196,7 @@ namespace HostApp.Processor {
             BreakOperation(false, VectorNMI);
             SignalOutputSYNC_High = true;
             RegisterIR = ReadMemoryValue(RegisterPC);
-            SetDisassembly();
+            Sim6502Utility.SetDisassembly(this, _Logger);
             _PendingNMI = false;
             SignalOutputSYNC_High = false;
         }
@@ -2224,7 +2209,7 @@ namespace HostApp.Processor {
             BreakOperation(false, VectorIRQ);
             SignalOutputSYNC_High = true;
             RegisterIR = ReadMemoryValue(RegisterPC);
-            SetDisassembly();
+            Sim6502Utility.SetDisassembly(this, _Logger);
             SignalOutputSYNC_High = false;
         }
     }
