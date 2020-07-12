@@ -48,8 +48,10 @@ namespace HostApp.Processor {
                     return "BRK";
                 case 0x50: // BVC Relative
                     return "BCV";
-                case 0x70: //BVS Relative
+                case 0x70: // BVS Relative
                     return "BVS";
+                case 0x80: // BRA Relative
+                    return "BRA";
                 case 0x18:  // CLC Implied
                     return "CLC";
                 case 0xD8:  // CLD Implied
@@ -153,8 +155,16 @@ namespace HostApp.Processor {
                     return "PHP";
                 case 0x68:  // PLA Implied
                     return "PLA";
+                case 0xDA:  // PHX Implied
+                    return "PHX";
+                case 0x5A:  // PHY Implied
+                    return "PHY";
                 case 0x28:  // PLP Implied
                     return "PLP";
+                case 0xFA:  // PLX Implied
+                    return "PLX";
+                case 0x7A:  // PLY Implied
+                    return "PLY";
                 case 0x2A:  // ROL Accumulator
                 case 0x26:  // ROL Zero Page
                 case 0x36:  // ROL Zero Page X
@@ -215,7 +225,7 @@ namespace HostApp.Processor {
                 case 0x98:  // TYA Implied
                     return "TYA";
                 default:
-                    throw new InvalidEnumArgumentException($"A Valid Conversion does not exist for OpCode ${opcode:X2}");
+                    throw new InvalidEnumArgumentException($"Sim6502Utility.ConvertOpCodeIntoString: no conversion for ${opcode:X2}");
 
             }
         }
@@ -306,16 +316,20 @@ namespace HostApp.Processor {
                 case 0x68: //PLA
                 case 0x28: //PLP
                 case 0x40: //RTI
+                case 0x5A: //PHY
                 case 0x60: //RTS
                 case 0x38: //SEC
                 case 0xF8: //SED
                 case 0x78: //SEI
+                case 0x7A: //PLY
                 case 0xAA: //TAX
                 case 0xA8: //TAY
                 case 0xBA: //TSX
                 case 0x8A: //TXA
                 case 0x9A: //TXS
                 case 0x98: //TYA
+                case 0xDA: //PHX
+                case 0xFA: //PLX
                     return EAddressingMode.Implicit;
                 case 0x6C:
                     return EAddressingMode.Indirect;
@@ -345,6 +359,7 @@ namespace HostApp.Processor {
                 case 0x10: //BPL
                 case 0x50: //BVC
                 case 0x70: //BVS
+                case 0x80: //BRA
                     return EAddressingMode.Relative;
                 case 0x65: //ADC
                 case 0x25: //AND
@@ -388,7 +403,7 @@ namespace HostApp.Processor {
                 case 0x94: //STY
                     return EAddressingMode.ZeroPageX;
                 default:
-                    throw new NotSupportedException($"Opcode ${opcode:X2} is not supported");
+                    throw new NotSupportedException($"Sim6502Utility.GetAddressingMode: ${opcode:X2} is not supported");
             }
         }
     }

@@ -1402,7 +1402,7 @@ namespace HostApp.Processor {
                     IncrementCycleCount();
                     break;
                 default:
-                    throw new NotSupportedException(string.Format("The OpCode ${0:X2} is not supported", RegisterIR));
+                    throw new NotSupportedException(string.Format("Sim6502.ExecuteOpCode: ${0:X2} is not supported", RegisterIR));
             }
         }
 

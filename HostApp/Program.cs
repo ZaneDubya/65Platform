@@ -7,8 +7,9 @@ namespace HostApp {
     class Program {
         static void Main(string[] args) {
             // DoZaneTest();
-            DoTest("1141 cycle test", "./tests/timingtest-with-end.bin", 0x01000, 0x01000, reportCycleCount: true);
-            DoTest("Klaus 6502 functional test", "./tests/6502_functional_test.bin", manualPC: 0x400, reportCycleCount: true, successonPCequals: 0x3469);
+            // DoTest("1141 cycle test", "./tests/timingtest-with-end.bin", 0x01000, 0x01000, reportCycleCount: true);
+            DoTest("Klaus 65c02 extended test", "./tests/65C02_extended_opcodes_test.bin", manualPC: 0x400, reportCycleCount: true);
+            // DoTest("Klaus 6502 functional test", "./tests/6502_functional_test.bin", manualPC: 0x400, reportCycleCount: true, successonPCequals: 0x3469);
             DoBenchmark();
         }
 
