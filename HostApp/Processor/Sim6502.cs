@@ -1157,18 +1157,157 @@ namespace HostApp.Processor {
                 // === Test and Set/Reset bits ==================================================================================================
                 // ==============================================================================================================================
 
-                // TSB Test and set bits, ZP, 2 bytes, 5 cycles
+                // TSB Test and set bits, ZP, 2 bytes, 5 cycles (65c02 / 65c816)
                 case 0x04:
                     OpTSB(EAddressingMode.ZeroPage);
                     break;
+                // TSB Test and set bits, absolute, 2 bytes, 6 cycles (65c02 / 65c816)
                 case 0x0C:
                     OpTSB(EAddressingMode.Absolute);
                     break;
+                // TRB Test and clear bits, ZP, 2 bytes, 5 cycles (65c02 / 65c816)
                 case 0x14:
                     OpTRB(EAddressingMode.ZeroPage);
                     break;
+                // TRB Test and clear bits, ZP, 2 bytes, 5 cycles (65c02 / 65c816)
                 case 0x1C:
                     OpTRB(EAddressingMode.Absolute);
+                    break;
+
+                // === Branch on Bits Clear / Set ===============================================================================================
+                // ==============================================================================================================================
+
+                // BBR0 - Branch if bit 0 is clear (reset), zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0x0F:
+                    OpBBR(0);
+                    break;
+                // BBR1 - Branch if bit 1 is clear (reset), zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0x1F:
+                    OpBBR(1);
+                    break;
+                // BBR2 - Branch if bit 2 is clear (reset), zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0x2F:
+                    OpBBR(2);
+                    break;
+                // BBR3 - Branch if bit 3 is clear (reset), zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0x3F:
+                    OpBBR(3);
+                    break;
+                // BBR4 - Branch if bit 4 is clear (reset), zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0x4F:
+                    OpBBR(4);
+                    break;
+                // BBR5 - Branch if bit 5 is clear (reset), zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0x5F:
+                    OpBBR(5);
+                    break;
+                // BBR6 - Branch if bit 6 is clear (reset), zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0x6F:
+                    OpBBR(6);
+                    break;
+                // BBR7 - Branch if bit 7 is clear (reset), zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0x7F:
+                    OpBBR(7);
+                    break;
+                // BBS0 - Branch if bit 0 is set, zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0x8F:
+                    OpBBS(0);
+                    break;
+                // BBS1 - Branch if bit 1 is set, zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0x9F:
+                    OpBBS(1);
+                    break;
+                // BBS2 - Branch if bit 2 is set, zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0xAF:
+                    OpBBS(2);
+                    break;
+                // BBS3 - Branch if bit 3 is set, zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0xBF:
+                    OpBBS(3);
+                    break;
+                // BBS4 - Branch if bit 4 is set, zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0xCF:
+                    OpBBS(4);
+                    break;
+                // BBS5 - Branch if bit 5 is set, zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0xDF:
+                    OpBBS(5);
+                    break;
+                // BBS6 - Branch if bit 6 is set, zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0xEF:
+                    OpBBS(6);
+                    break;
+                // BBS7 - Branch if bit 7 is set, zero page / relative, 3 bytes, 5 cycles (65c02 / 65c816)
+                case 0xFF:
+                    OpBBS(7);
+                    break;
+
+                // === Reset or Set bits in zero page ===========================================================================================
+                // ==============================================================================================================================
+
+                // RMB0 - Reset (clear) bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0x07:
+                    OpRMB(0);
+                    break;
+                // RMB1 - Reset (clear) bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0x17:
+                    OpRMB(1);
+                    break;
+                // RMB2 - Reset (clear) bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0x27:
+                    OpRMB(2);
+                    break;
+                // RMB3 - Reset (clear) bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0x37:
+                    OpRMB(3);
+                    break;
+                // RMB4 - Reset (clear) bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0x47:
+                    OpRMB(4);
+                    break;
+                // RMB5 - Reset (clear) bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0x57:
+                    OpRMB(5);
+                    break;
+                // RMB6 - Reset (clear) bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0x67:
+                    OpRMB(6);
+                    break;
+                // RMB7 - Reset (clear) bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0x77:
+                    OpRMB(7);
+                    break;
+                // SMB0 - Set bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0x87:
+                    OpSMB(0);
+                    break;
+                // SMB1 - Set bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0x97:
+                    OpSMB(1);
+                    break;
+                // SMB2 - Set bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0xA7:
+                    OpSMB(2);
+                    break;
+                // SMB3 - Set bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0xB7:
+                    OpSMB(3);
+                    break;
+                // SMB4 - Set bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0xC7:
+                    OpSMB(4);
+                    break;
+                // SMB5 - Set bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0xD7:
+                    OpSMB(5);
+                    break;
+                // SMB6 - Set bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0xE7:
+                    OpSMB(6);
+                    break;
+                // SMB7 - Set bit 0 in zp, zero page, 2 bytes, 5 cycles (65c02 / 65c816)
+                case 0xF7:
+                    OpSMB(7);
                     break;
 
                 // === NOP ======================================================================================================================
@@ -1181,6 +1320,64 @@ namespace HostApp.Processor {
                 default:
                     throw new NotSupportedException(string.Format("The OpCode ${0:X2} is not supported", RegisterIR));
             }
+        }
+
+        // === New operation code =======================================================================================================
+        // ==============================================================================================================================
+
+        /// <summary>
+        /// Checks a bit in the zero page address indicated by the byte at PC. If the bit is clear (reset), branch.
+        /// </summary>
+        /// <param name="bit">Index of bit to check</param>
+        private void OpBBR(int bit) {
+            byte memoryValue = ReadMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPage));
+            IncrementCycleCount();
+            BranchOperation((memoryValue & (2 ^ bit)) == 0);
+        }
+
+        /// <summary>
+        /// Checks a bit in the zero page address indicated by the byte at PC. If the bit is set, branch.
+        /// </summary>
+        /// <param name="bit">Index of bit to check</param>
+        private void OpBBS(int bit) {
+            byte memoryValue = ReadMemoryValue(GetAddressByAddressingMode(EAddressingMode.ZeroPage));
+            IncrementCycleCount();
+            BranchOperation((memoryValue & (2 ^ bit)) != 0);
+        }
+
+        /// <summary>
+        /// Resets (clears) a bit in the zero page at address indicated by the byte at PC.
+        /// </summary>
+        /// <param name="bit">Index of bit to check</param>
+        private void OpRMB(int bit) {
+            int address = GetAddressByAddressingMode(EAddressingMode.ZeroPage);
+            byte memoryValue = ReadMemoryValue(address);
+            memoryValue = (byte)(bit | (2 ^ bit));
+            WriteMemoryValue(address, memoryValue);
+        }
+
+        /// <summary>
+        /// Sets a bit in the zero page at address indicated by the byte at PC.
+        /// </summary>
+        /// <param name="bit">Index of bit to check</param>
+        private void OpSMB(int bit) {
+            int address = GetAddressByAddressingMode(EAddressingMode.ZeroPage);
+            byte memoryValue = ReadMemoryValue(address);
+            memoryValue = (byte)(bit & ~(2 ^ bit));
+            WriteMemoryValue(address, memoryValue);
+        }
+
+        /// <summary>
+        /// Test and clears bits at the indicated memory location. Zero flag is set if (memory & A) == 0.
+        /// </summary>
+        private void OpTRB(EAddressingMode addressing) {
+            int address = GetAddressByAddressingMode(addressing);
+            byte memoryValue = ReadMemoryValue(address);
+            int zeroCheckValue = memoryValue & RegisterA;
+            int value = memoryValue & ~RegisterA;
+            SetZeroFlag(zeroCheckValue);
+            IncrementCycleCount();
+            WriteMemoryValue(address, (byte)value);
         }
 
         /// <summary>
@@ -1196,18 +1393,8 @@ namespace HostApp.Processor {
             WriteMemoryValue(address, (byte)value);
         }
 
-        /// <summary>
-        /// Test and clears bits at the indicated memory location. Zero flag is set if (memory & A) == 0.
-        /// </summary>
-        private void OpTRB(EAddressingMode addressing) {
-            int address = GetAddressByAddressingMode(addressing);
-            byte memoryValue = ReadMemoryValue(address);
-            int zeroCheckValue = memoryValue & RegisterA;
-            int value = memoryValue & ~RegisterA;
-            SetZeroFlag(zeroCheckValue);
-            IncrementCycleCount();
-            WriteMemoryValue(address, (byte)value);
-        }
+        // === Existing operation code ==================================================================================================
+        // ==============================================================================================================================
 
         /// <summary>
         /// Sets the IsSignNegative register
@@ -1593,12 +1780,10 @@ namespace HostApp.Processor {
         /// <param name="performBranch">Is a branch required</param>
         private void BranchOperation(bool performBranch) {
             var value = ReadMemoryValue(GetAddressByAddressingMode(EAddressingMode.Relative));
-
             if (!performBranch) {
                 RegisterPC++;
                 return;
             }
-
             MoveProgramCounterByRelativeValue(value);
         }
 
